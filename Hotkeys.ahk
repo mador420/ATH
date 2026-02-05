@@ -12,8 +12,6 @@ $F1::
 		return
 	}
 
-	;SetNumberHotkeys("on")
-	;SetNumpadHotkeys("on")
 
 	WinActivate, ahk_pid %tms1Pid%
 	WinWaitActive, ahk_pid %tms1Pid%, , 1
@@ -30,8 +28,6 @@ $F1::
 
         if (!WaitExcel())
         {
-            ;SetNumberHotkeys("off")
-            ;SetNumpadHotkeys("off")
             return
         }
 
@@ -42,26 +38,18 @@ $F1::
     catch
     {
         RecordLog("F1 - 실패 (엑셀 객체 오류)")
-        ;SetNumberHotkeys("off")
-        ;SetNumpadHotkeys("off")
         return
     }
 
     ; 5. 마무리 및 상태 초기화
     GuiControl, 1:, Status, 엑셀, TMS 새로고침 완료
     SetTimer, ResetStatus, 3000
-
-    ;SetNumberHotkeys("off")
-    ;SetNumpadHotkeys("off")
     return
 }
 
 $F3::
 {
-	;SetNumberHotkeys("on")
-
 	if(!CheckExcel()) {
-		;SetNumpadHotkeys("off")
 		return
 	}
 	GuiControl, 1:, Status, 차량번호 조회로 이동
@@ -75,9 +63,18 @@ $F3::
 		xl.Columns("C").Select
 		WaitExcel()
 
-		targetRow := RegExReplace(searchStartRow, "\D")
+		if (searchto = 1) {
+			targetRow := RegExReplace(searchStartRow, "\D")
+		} else if (searchto = 2) {
+			lastRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row
+			targetRow := xl.Cells(lastRow, 3).End(-4162).Row
+		}
+		if (targetRow < 6) {
+			targetRow := 7
+		}
+
 		xl.Cells(targetRow, 3).Activate
-		;xl.ActiveWindow.ScrollRow := targetRow ? targetRow : 7
+
 		WaitExcel()
 
 		Send, ^f
@@ -89,7 +86,6 @@ $F3::
 	}
 
 	GuiControl, 1:, Status, 대기 중
-	;SetNumberHotkeys("off")
 	return
 }
 
@@ -173,8 +169,9 @@ $F6::
 	if(!CheckExcel(true, "F6")) {
 		return
 	}
-
-    Send, ^{Enter}{Ctrl Up}
+	if(!CarExist()){
+		return
+	}
 
     try
     {
@@ -220,9 +217,11 @@ $F7::
 	if(!CheckExcel(true, "F7")) {
 		return
 	}
+	if(!CarExist()){
+		return
+	}
 
     GuiControl, 1:, Status, 납품 -> 반출 재입력 중
-    Send, ^{Enter}{Ctrl Up}
 
     try
     {
@@ -287,7 +286,6 @@ $NumLock::
 	if(!CheckExcel(true)) {
 		return
 	}
-
     Send, /전산
     GuiControl, 1:, Status, "/전산" 입력
     SetTimer, ResetStatus, 3000
@@ -376,46 +374,18 @@ $^t::
 	if(!CheckExcel(true, "T")) {
 		return
 	}
-
 	if (!CarExist()) {
 		return
 	}
-	selectionRow := xl.ActiveCell.Row
-	rawCarType := xl.Cells(selectionRow, 8).Value
-	checkValue := Trim(rawCarType)
-
-	FormatTime, datePart,, yyMMdd
-	finaldate := ""
-
-	switch checkValue
-	{
-		case "1뷰티":
-			finaldate := "11110" . datePart
-		case "2뷰티":
-			finaldate := "1BTOS" . datePart
-		case "3뷰티":
-			finaldate := "1TRDT" . datePart
-		case "대전":
-			finaldate := "11111" . datePart
-		case "김천":
-			finaldate := "11120" . datePart
-		default:
-			finaldate := ""
+	if (autoslip = 1) {
+		AutoSlipInput()
+	} else {
+		Clipboard := "TRDT"
+		ClipWait, 1
+		Send, {F2}^v{Ctrl Up}
+		GuiControl, 1:, Status, "TRDT" 입력
+		SetTimer, ResetStatus, 3000
 	}
-
-    ;Hotkey, Ctrl, On
-	if (finaldate != "") {
-        Clipboard := ""
-        Clipboard := finaldate
-        ClipWait, 1
-        Send, ^v{Ctrl Up}{F2}
-        GuiControl, 1:, Status, 전표번호 입력
-    }
-	else {
-        GuiControl, 1:, Status, 일치하는 지역 없음
-    }
-    SetTimer, ResetStatus, 3000
-	;Hotkey, Ctrl, Off
     return
 }
 
@@ -424,12 +394,18 @@ $^b::
 	if(!CheckExcel(true, "B")) {
 		return
 	}
-
-	;Hotkey, Ctrl, On
-	Send, BTOS
-    GuiControl, 1:, Status, "BTOS" 입력
-    SetTimer, ResetStatus, 3000
-	;Hotkey, Ctrl, Off
+	if (!CarExist()) {
+		return
+	}
+	if (autoslip = 1) {
+		AutoSlipInput()
+	} else {
+		Clipboard := "BTOS"
+		ClipWait, 1
+		Send, {F2}^v{Ctrl Up}
+		GuiControl, 1:, Status, "BTOS" 입력
+		SetTimer, ResetStatus, 3000
+	}
     return
 }
 
@@ -437,7 +413,6 @@ $ScrollLock::
 {
     WinActivate, ahk_pid %tms2Pid%
     WinWaitActive, ahk_pid %tms2Pid%, , 1
-    Sleep, %normalIdleTime%
     MouseMove, 1395, 407, %mouseMoveSpeed%
     Click
     return
@@ -447,14 +422,13 @@ $Pause::
 {
 	WinActivate, ahk_pid %tms2Pid%
     WinWaitActive, ahk_pid %tms2Pid%, , 1
-    Sleep, %normalIdleTime%
 	MouseMove, 1457, 407 ,%mouseMoveSpeed%
 	Click
 	return
 }
 
 $^1::HandleCarInput(1)
-$$^2::HandleCarInput(2)
+$^2::HandleCarInput(2)
 $^3::HandleCarInput(3)
 $^4::HandleCarInput(4)
 $^5::HandleCarInput(5)
@@ -469,28 +443,11 @@ $!5::RegisterSlotFromExcel(5)
 $!6::RegisterSlotFromExcel(6)
 $!7::RegisterSlotFromExcel(7)
 
-/*
-0:: return
-1:: return
-2:: return
-3:: return
-4:: return
-5:: return
-6:: return
-7:: return
-8:: return
-9:: return
 
-Numpad0:: return
-Numpad1:: return
-Numpad2:: return
-Numpad3:: return
-Numpad4:: return
-Numpad5:: return
-Numpad6:: return
-Numpad7:: return
-Numpad8:: return
-Numpad9:: return
-*/
+#If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 2)
 
-;Ctrl:: return
+$Enter::
+    Send, {Shift Down}{Enter}{Shift Up}
+    return
+
+#If

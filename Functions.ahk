@@ -1,5 +1,4 @@
-﻿
-;===========================================================
+﻿;===========================================================
 ;세팅 정보를 불러오는 함수
 ;===========================================================
 LoadSettings() {
@@ -7,13 +6,15 @@ LoadSettings() {
 
     ; 1. 스피드 및 시간 설정 로드
     ReadToVar("speedSettings", "mouseMoveSpeed", 0)
-    ReadToVar("speedSettings", "normalIdleTime", 0)
-    ReadToVar("speedSettings", "excelIdleTime", 50)
     ReadToVar("speedSettings", "tmsIdleTime", 50)
 
     ; 2. 일반 설정 로드
     ReadToVar("settings", "searchStartRow", 7)
     ReadToVar("settings", "chooseSlotNum", 1)
+
+    ReadToVar("settings", "autoslip", 1, "radio")
+    ReadToVar("settings", "searchto", 2, "radio")
+
 
     ; 3. 슬롯 라디오 버튼 체크
     if (chooseSlotNum != "") {
@@ -27,8 +28,6 @@ SaveSettings() {
 	Gui, 3: Submit, NoHide
 
     isSpeedOk := (mouseMoveSpeed >= 0 && mouseMoveSpeed <= 100)
-    isNormalOk := (normalIdleTime >= 0 && normalIdleTime <= 100)
-    isExcelOk := (excelIdleTime >= 50 && excelIdleTime <= 150)
     isTmsOk := (tmsIdleTime >= 50 && tmsIdleTime <= 150)
 
     if (isSpeedOk && isNormalOk && isExcelOk && isTmsOk)
@@ -36,8 +35,6 @@ SaveSettings() {
         GuiControl, 1:, Status, 기타 설정 저장 중
 
         IniWrite, %mouseMoveSpeed%, assistantTool1, speedSettings, mouseMoveSpeed
-        IniWrite, %normalIdleTime%, assistantTool1, speedSettings, normalIdleTime
-        IniWrite, %excelIdleTime%, assistantTool1, speedSettings, excelIdleTime
         IniWrite, %tmsIdleTime%, assistantTool1, speedSettings, tmsIdleTime
         IniWrite, %searchStartRow%, assistantTool1, settings, searchStartRow
 
@@ -50,18 +47,27 @@ SaveSettings() {
     {
         MsgBox, 262208, 알림, 설정 값이 범위를 초과하였습니다.
     }
+
+    autoslip := autoslip1 ? 1 : (autoslip2 ? 2 : 1)
+    searchto := searchto1 ? 1 : (searchto2 ? 2 : 1)
+    IniWrite, %autoslip%, assistantTool1, settings, autoslip
+    IniWrite, %searchto%, assistantTool1, settings, searchto
 	return
 }
 
 ;===========================================================
 ;INI파일의 정보를 읽어오는 공용 함수
 ;===========================================================
-ReadToVar(Section, Key, DefaultValue := "") {
+ReadToVar(Section, Key, DefaultValue := "", Type := "") {
     global
 
     IniRead, readTemp, assistantTool1, %Section%, %Key%, %DefaultValue%
     %Key% := readTemp
-    GuiControl, 3:, %Key%, %readTemp%
+    if (Type = "radio") {
+        GuiControl, 3:, %Key%%readTemp%, 1
+    } else {
+        GuiControl, 3:, %Key%, %readTemp%
+    }
 }
 
 
@@ -404,7 +410,7 @@ FindLastRow()
 CarExist() {
     global xl
 
-    ControlSend, , ^{Enter}{Ctrl Up}, ahk_class XLMAIN
+    Send, {Ctrl Down}{Enter}{Ctrl Up}
 
     selectionRow := xl.ActiveCell.Row
     rawCarNum := xl.Cells(selectionRow, 3).Value
@@ -442,3 +448,44 @@ count := Round(xl.Evaluate(formula))
     }
 return
 }
+
+AutoSlipInput(){
+    global xl
+
+    selectionRow := xl.ActiveCell.Row
+	rawCarType := xl.Cells(selectionRow, 8).Value
+	checkValue := Trim(rawCarType)
+
+	FormatTime, datePart,, yyMMdd
+	finaldate := ""
+
+	switch checkValue
+	{
+		case "1뷰티":
+			finaldate := "11110" . datePart . "00"
+		case "2뷰티":
+			finaldate := "1BTOS" . datePart . "00"
+		case "3뷰티":
+			finaldate := "1TRDT" . datePart . "00"
+		case "대전":
+			finaldate := "11111" . datePart . "00"
+		case "김천":
+			finaldate := "11120" . datePart . "00"
+		default:
+			finaldate := ""
+	}
+
+	if (finaldate != "") {
+        Clipboard := ""
+        Clipboard := finaldate
+        ClipWait, 1
+        Send, {F2}^v{Ctrl Up}
+        GuiControl, 1:, Status, 전표번호 입력
+    }
+	else {
+        GuiControl, 1:, Status, 일치하는 지역 없음
+    }
+    SetTimer, ResetStatus, 3000
+    return
+}
+
