@@ -103,10 +103,11 @@ SaveQuickSlot(chooseSlotNum)
 
         ; 15번 항목
         dataLine .= Car%cIdx%CardEdit
+        safeData := """" . dataLine . """"
 
         ; INI 파일에는 키 이름을 숫자(1, 2, 3...)로 저장하여 깔끔하게 관리
         IniDelete, assistantTool1, slot%chooseSlotNum%, %cIdx%
-        IniWrite, %dataLine%, assistantTool1, slot%chooseSlotNum%, %cIdx%
+        IniWrite, %safeData%, assistantTool1, slot%chooseSlotNum%, %cIdx%
     }
 
     IniWrite, %chooseSlotNum%, assistantTool1, settings, chooseSlotNum
@@ -132,6 +133,7 @@ LoadQuickSlot(slotNum) {
         cIdx := A_Index
         IniRead, rawLine, assistantTool1, slot%slotNum%, %cIdx%, %A_Space%
         Car%cIdx%Data := rawLine
+        rawLine := Trim(rawLine, """")
         row := StrSplit(rawLine, A_Tab)
 
         for fIdx, fName in fields {

@@ -68,8 +68,14 @@ HandleCarInput(idx)
             MsgBox, 262208, 알림, 해당 슬롯에 데이터가 없습니다.
             return
         }
+        row := StrSplit(savedLine, A_Tab)
 
-        finalLine := ReformCarInfo(savedLine, true)
+        if (Trim(row[1]) = "") {
+            MsgBox, 262208, 알림, 해당 슬롯에 차량번호가 없습니다.
+            return
+        }
+
+        finalLine := ReformCarInfo(row, true)
 
         ; 3. 엑셀 작업 시작
         xl.Sheets(1).Select
