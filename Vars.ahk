@@ -5,7 +5,8 @@
 ; 1. 기본 설정 및 자동화 관련
 global mouseMoveSpeed, tmsIdleTime, searchStartRow, chooseSlotNum
 
-global searchto, autoslip
+global searchto, autoslip, inputscroll
+global midOffset := 1
 
 ; 2. 엑셀 TMS 객체 관리
 global xl, excelName, tms1Pid, tms2Pid

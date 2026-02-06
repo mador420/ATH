@@ -12,11 +12,8 @@ $F1::
 		return
 	}
 
-
-	WinActivate, ahk_pid %tms1Pid%
-	WinWaitActive, ahk_pid %tms1Pid%, , 1
-	WinActivate, %excelName%
-	WinWaitActive, %excelName%, , 1
+    ActivateWindow("ahk_pid " . tms1Pid)
+	ActivateWindow(excelName)
 
 	Sleep, 20
 
@@ -24,20 +21,22 @@ $F1::
     {
 		GuiControl, 1:, Status,엑셀, TMS 새로고침중
 
-        xl.Sheets(1).Activate
+        ExcelOptimizer(true)
 
-        if (!WaitExcel())
-        {
-            return
+        if (xl.ActiveSheet.Index != 1) {
+            xl.Sheets(1).Activate
+            WaitExcel()
         }
 
 		;ControlClick, Button22, ahk_pid %tms1Pid%
 		xl.Range("P6").AutoFilter(16, "=")
 		GetTMSCountFromExcel()
+        ExcelOptimizer(false)
 	}
     catch
     {
         RecordLog("F1 - 실패 (엑셀 객체 오류)")
+        ExcelOptimizer(false)
         return
     }
 
@@ -53,28 +52,28 @@ $F3::
 		return
 	}
 	GuiControl, 1:, Status, 차량번호 조회로 이동
-	WinActivate, %excelName%
-	WinWaitActive, %excelName%, , 1
+	ActivateWindow(excelName)
+    ExcelOptimizer(true)
 
 	try {
-		xl.Sheets(2).Select
-		WaitExcel()
+		MoveSheet(2)
 
 		xl.Columns("C").Select
 		WaitExcel()
 
 		if (searchto = 1) {
-			targetRow := RegExReplace(searchStartRow, "\D")
-		} else if (searchto = 2) {
-			lastRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row
+            lastRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row
 			targetRow := xl.Cells(lastRow, 3).End(-4162).Row
+		} else if (searchto = 2) {
+			targetRow := RegExReplace(searchStartRow, "\D")
 		}
 		if (targetRow < 6) {
 			targetRow := 7
 		}
 
-		xl.Cells(targetRow, 3).Activate
+        ExcelOptimizer(false)
 
+		xl.Cells(targetRow, 3).Activate
 		WaitExcel()
 
 		Send, ^f
@@ -82,6 +81,7 @@ $F3::
         Send, +{Home}
 		RecordLog("F3 - 검색창 대기")
 	} catch {
+        ExcelOptimizer(false)
 		RecordLog("F3 동작중 실패")
 	}
 
@@ -133,16 +133,20 @@ $F4::
 		Clipboard := newRowData
 		ClipWait, 1
 
-		xl.Sheets(1).Select
-		WaitExcel()
+        ActivateWindow(excelName)
+        ExcelOptimizer(true)
+		MoveSheet(1)
 
 		targetRow := FindLastRow()
+        ExcelOptimizer(false)
 
-		WinActivate, %excelName%
-		WinWaitActive, %excelName%, , 1
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
+
 		xl.Range("C" . targetRow).Select
 		WaitExcel()
-		Send, ^v{Ctrl Up}
+        Send, ^v{Ctrl Up}
 		WaitExcel()
 
         if (lastVal = "카드/전산" || lastVal = "48/전산" || lastVal = "50/전산")	{
@@ -158,6 +162,7 @@ $F4::
     }
     catch
     {
+        ExcelOptimizer(false)
         RecordLog("F4 - 실패")
         MsgBox, 262208, 에러, 엑셀 작업 중 오류가 발생했습니다.
     }
@@ -175,6 +180,7 @@ $F6::
 
     try
     {
+        ExcelOptimizer(true)
         ; 1. 현재 선택된 행 객체 생성
         selectionRow := xl.Selection.Row
         rowObj := xl.ActiveSheet.Rows(selectionRow)
@@ -200,11 +206,13 @@ $F6::
             rowObj.Cells(9).Value := hVal      ; I열 <- 기존 H열 값
 
             GuiControl, 1:, Status, 납품 -> 반출 전환 완료
+            ExcelOptimizer(false)
         }
     }
     catch
     {
         RecordLog("F6 - 실패")
+        ExcelOptimizer(false)
     }
 
     SetTimer, ResetStatus, 3000
@@ -249,29 +257,36 @@ $F7::
         newRowData := ReformCarInfo(dataArr, true)
 
         ; 4. 기존 행 P열 수정 (이건 개별 수정 필수)
+        ExcelOptimizer(true)
         xl.Range("P" . currRow).Value := "/"
 
         ; 5. 타겟 행 찾기 및 붙여넣기
         targetRow := targetRow := FindLastRow()
 
-
-        ; [중요] F4에서 배운 안전한 클립보드 주입
-        xl.Application.CutCopyMode := False ; 엑셀 복사모드 해제
+        xl.Application.CutCopyMode := False
         Clipboard := ""
         Clipboard := newRowData
         ClipWait, 1
 
+        ExcelOptimizer(false)
+
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
+
 		xl.Range("C" . targetRow).Select
 		WaitExcel()
-		Send, ^v{Ctrl Up}
+        Send, ^v{Ctrl Up}
 		WaitExcel()
 		xl.Range("K" . targetRow).Select
-		RecordLog("F7 재입력 완료")
+
+        RecordLog("F7 재입력 완료")
 		GuiControl, 1:, Status, 납품 -> 반출 재입력 완료
 
     }
     catch
     {
+        ExcelOptimizer(false)
         RecordLog("F7 - 실패")
 		GuiControl, 1:, Status, 납품 -> 반출 재입력 실패
         return
@@ -299,8 +314,7 @@ $Insert::
 		return
 	}
 
-    WinActivate, %excelName%
-	WinWaitActive, %excelName%, , 1
+    ActivateWindow(excelName)
     if (!WaitExcel()) {
         RecordLog("Insert - 엑셀 응답 없음")
         return
@@ -327,8 +341,8 @@ $Insert::
     GuiControl, 1:, Status, 차량 정보 입력 중
 
     ; TMS 창 활성화 및 대기
-    WinActivate, ahk_pid %tms2Pid%
-    WinWaitActive, ahk_pid %tms2Pid%, , 1
+
+    ActivateWindow("ahk_pid " . tms2Pid)
 
     ; 텍스트 입력 (ControlSetText는 신뢰도가 높지만 입력 후 대기가 필요할 수 있음)
     ControlSetText, PBEDIT1052, %inputCarNum%, ahk_pid %tms2Pid%
@@ -337,9 +351,7 @@ $Insert::
     ; 버튼 클릭
     ControlClick, Button9, ahk_pid %tms2Pid%
 
-    IfWinNotActive, ahk_pid %tms2Pid%
-        WinActivate, ahk_pid %tms2Pid%
-		WinWaitActive, ahk_pid %tms2Pid%, , 1
+    ActivateWindow("ahk_pid " . tms2Pid)
 
     Sleep, %normalIdleTime%
 
@@ -411,8 +423,7 @@ $^b::
 
 $ScrollLock::
 {
-    WinActivate, ahk_pid %tms2Pid%
-    WinWaitActive, ahk_pid %tms2Pid%, , 1
+    ActivateWindow("ahk_pid " . tms2Pid)
     MouseMove, 1395, 407, %mouseMoveSpeed%
     Click
     return
@@ -420,8 +431,7 @@ $ScrollLock::
 
 $Pause::
 {
-	WinActivate, ahk_pid %tms2Pid%
-    WinWaitActive, ahk_pid %tms2Pid%, , 1
+    ActivateWindow("ahk_pid " . tms2Pid)
 	MouseMove, 1457, 407 ,%mouseMoveSpeed%
 	Click
 	return
@@ -444,7 +454,7 @@ $!6::RegisterSlotFromExcel(6)
 $!7::RegisterSlotFromExcel(7)
 
 
-#If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 2)
+#If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 1)
 
 $Enter::
     Send, {Shift Down}{Enter}{Shift Up}

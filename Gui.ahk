@@ -68,26 +68,32 @@ Gui, 2: Add, Button, x811 y220 w110 h25 Center gSettingWriteBtn, 저장
 
 ; --- GUI 3: 기타 설정 ---
 Gui, 3: Font, S13, 맑은 고딕
-Gui, 3: Add, Text, x25 y5 w300 h25, 전표번호 단축키
+Gui, 3: Add, Text, x25 y5 w300 h25, 입력되는 행 스크롤
 Gui, 3: Font, S12, 맑은 고딕
-Gui, 3: Add, Radio, x25 y30 w150 h25 vautoslip1, 지역별 자동입력
-Gui, 3: Add, Radio, x190 y30 w150 h25 vautoslip2, BTOS / TRDT
+Gui, 3: Add, Radio, x25 y30 w100 h25 vinputscroll1, 중앙
+Gui, 3: Add, Radio, x130 y30 w100 h25 vinputscroll2, 엑셀 기본
 
 Gui, 3: Font, S13, 맑은 고딕
-Gui, 3: Add, Text, x25 y65 w200 h25, 차량 검색 방향
+Gui, 3: Add, Text, x25 y65 w300 h25, 전표번호 단축키
 Gui, 3: Font, S12, 맑은 고딕
-Gui, 3: Add, Radio, x25 y90 w100 h25 vsearchto1, ↓아래로
-Gui, 3: Add, Radio, x130 y90 w100 h25 vsearchto2, ↑위로
+Gui, 3: Add, Radio, x25 y90 w150 h25 vautoslip1, 지역별 자동입력
+Gui, 3: Add, Radio, x190 y90 w150 h25 vautoslip2, BTOS / TRDT
+
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x25 y125 w200 h25, 차량 검색 방향
+Gui, 3: Font, S12, 맑은 고딕
+Gui, 3: Add, Radio, x25 y150 w100 h25 vsearchto1, ↑위로
+Gui, 3: Add, Radio, x130 y150 w100 h25 vsearchto2, ↓아래로
 
 
 Gui, 3: Font, S13, 맑은 고딕
-Gui, 3: Add, Text, x25 y125 w300 h25, 검색 시작 행(아래로 조회시)
-Gui, 3: Add, Edit, x25 y150 w100 h25 vsearchStartRow
+Gui, 3: Add, Text, x25 y185 w300 h25, 검색 시작 행(아래로 조회시)
+Gui, 3: Add, Edit, x250 y185 w100 h25 vsearchStartRow
 
 Gui, 3: Font, S13, 맑은 고딕
 
-Gui, 3: Add, Text, x25 y185 w300 h25, TMS 대기 시간 (50 ~ 150)
-Gui, 3: Add, Edit, x25 y210 w50 h25 vtmsIdleTime
+Gui, 3: Add, Text, x25 y220 w300 h25, TMS 대기 (50~150)
+Gui, 3: Add, Edit, x180 y220 w50 h25 vtmsIdleTime
 
 Gui, 3: Add, Button, x240 y220 w110 h25 Center gOtherWriteBtn, 저장
 

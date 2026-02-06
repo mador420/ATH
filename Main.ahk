@@ -1,6 +1,7 @@
 ﻿; <COMPILER: v1.1.37.01>
 
 #SingleInstance force
+#MaxThreads 1
 SetTitleMatchMode, 2
 CoordMode, Mouse, screen
 CoordMode, Pixel, screen
@@ -56,8 +57,8 @@ HandleCarInput(idx)
         return
     }
 
-    WinActivate, %excelName%
-    WinWaitActive, %excelName%, , 1
+    ActivateWindow(excelName)
+    ExcelOptimizer(true)
 
     try
     {
@@ -77,9 +78,7 @@ HandleCarInput(idx)
 
         finalLine := ReformCarInfo(row, true)
 
-        ; 3. 엑셀 작업 시작
-        xl.Sheets(1).Select
-        WaitExcel()
+        MoveSheet(1)
 
         ; 빈 행 찾기
         targetRow := FindLastRow()
@@ -87,11 +86,13 @@ HandleCarInput(idx)
         Clipboard := finalLine
         ClipWait, 1
 
-        WinActivate, %excelName%
-        WinWaitActive, %excelName%, , 1
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
 
         xl.Range("C" . targetRow).Select
         WaitExcel()
+        ExcelOptimizer(false)
         Send, ^v{Ctrl Up}
         WaitExcel()
 
@@ -108,6 +109,7 @@ HandleCarInput(idx)
     catch e
     {
         RecordLog("^" idx " - 실패: " e.message)
+        ExcelOptimizer(false)
         return
     }
 }

@@ -12,8 +12,9 @@ LoadSettings() {
     ReadToVar("settings", "searchStartRow", 7)
     ReadToVar("settings", "chooseSlotNum", 1)
 
+    ReadToVar("settings", "inputscroll", 1, "radio")
     ReadToVar("settings", "autoslip", 1, "radio")
-    ReadToVar("settings", "searchto", 2, "radio")
+    ReadToVar("settings", "searchto", 1, "radio")
 
 
     ; 3. 슬롯 라디오 버튼 체크
@@ -30,7 +31,7 @@ SaveSettings() {
     isSpeedOk := (mouseMoveSpeed >= 0 && mouseMoveSpeed <= 100)
     isTmsOk := (tmsIdleTime >= 50 && tmsIdleTime <= 150)
 
-    if (isSpeedOk && isNormalOk && isExcelOk && isTmsOk)
+    if (isSpeedOk && isTmsOk)
     {
         GuiControl, 1:, Status, 기타 설정 저장 중
 
@@ -48,8 +49,11 @@ SaveSettings() {
         MsgBox, 262208, 알림, 설정 값이 범위를 초과하였습니다.
     }
 
+    inputscroll := inputscroll1 ? 1 : (inputscroll2 ? 2 : 1)
     autoslip := autoslip1 ? 1 : (autoslip2 ? 2 : 1)
     searchto := searchto1 ? 1 : (searchto2 ? 2 : 1)
+
+    IniWrite, %inputscroll%, assistantTool1, settings, inputscroll
     IniWrite, %autoslip%, assistantTool1, settings, autoslip
     IniWrite, %searchto%, assistantTool1, settings, searchto
 	return
@@ -195,16 +199,19 @@ RegistPrograms()
         GuiControl, , Status, 프로그램 등록 중..
 
         ; 창 위치 및 레이아웃 조정
-        WinActivate, %excelName%
-        WinWaitActive, %excelName%, , 1
+        ActivateWindow(excelName)
         WinMove, ahk_pid %tms1Pid%, , 0, 291
         WinMove, ahk_pid %tms2Pid%, , 895, 291
         WinMove, %excelName%, , 1912, -8
 
+        try {
+            ; 현재 화면에 보이는 행 개수를 구해 절반을 미리 계산
+            midOffset := Round(xl.ActiveWindow.VisibleRange.Rows.Count / 2)
+        }
+
         Gui, Show, x0 y0 w345 h264, AssistantTool
         WinMaximize, %excelName%
-        WinActivate, %excelName%
-        WinWaitActive, %excelName%, , 1
+        ActivateWindow(excelName)
     }
     catch
     {
@@ -377,31 +384,35 @@ FindLastRow()
     global xl
     try
     {
-        /*
-        lastRow := xl.Cells(xl.Rows.Count, "C").End(-4162).Row + 1
-
-        if (lastRow < 7)
-            lastRow := 7
-
-        xl.Rows(lastRow).EntireRow.Hidden := False
-        return lastRow
-        */
-        currentRow := (startRow < 7) ? 7 : startRow
-
-        while (xl.Cells(currentRow, 3).Value != "")
-        {
-            currentRow++
+        lastRowA := xl.Cells(xl.Rows.Count, 1).End(-4162).Row
+        if (lastRowA < 7) {
+            lastRowA := 306
         }
 
-        ; 빈 행을 찾았으면 숨김 해제
-        xl.Rows(currentRow).EntireRow.Hidden := False
+        dataArray := xl.Range("C1:C" . lastRowA + 1).Value
 
+        currentRow := 7
+
+        Loop, % dataArray.MaxIndex()
+        {
+            if (A_Index < 7) {
+                continue
+            }
+
+            if (dataArray[A_Index, 1] = "")
+            {
+                currentRow := A_Index
+                break
+            }
+        }
+
+        xl.Rows(currentRow).EntireRow.Hidden := False
         return currentRow
     }
     catch
     {
         RecordLog("FindLastRow - 에러 발생")
-        return 7 ; 에러 시 기본값 반환
+        return 7
     }
 }
 
@@ -489,5 +500,66 @@ AutoSlipInput(){
     }
     SetTimer, ResetStatus, 3000
     return
+}
+
+;===========================================================
+; WinActive를 이미 활성화 되어있으면 skip 하는 함수
+; @param winTitle
+;===========================================================
+ActivateWindow(winTitle)
+{
+    if (WinActive(winTitle))
+    {
+        return
+    }
+    WinActivate, %winTitle%
+    WinWaitActive, %winTitle%, , 0.1
+}
+
+;===========================================================
+; 엑셀의 최적화 기능을 켜고 끔
+; @param boolean
+;===========================================================
+ExcelOptimizer(on)
+{
+    global xl
+    try
+    {
+        if (on)
+        {
+            xl.ScreenUpdating := False
+            xl.EnableEvents := False
+            xl.Calculation := -4135
+        }
+        else
+        {
+            xl.Calculation := -4105
+            xl.EnableEvents := True
+            xl.ScreenUpdating := True
+        }
+    }
+}
+
+;===========================================================
+; 엑셀의 시트 이동 함수 이미 선택된 시트이면 아무 동작 하지 않음
+; @param sheetRef
+;==========================================================
+MoveSheet(sheetRef)
+{
+    global xl
+    try
+    {
+        if (RegExMatch(sheetRef, "^\d+$"))
+        {
+            if (xl.ActiveSheet.Index != sheetRef)
+                xl.Sheets(sheetRef).Select
+        }
+        else
+        {
+            if (xl.ActiveSheet.Name != sheetRef)
+                xl.Sheets(sheetRef).Select
+        }
+        WaitExcel()
+    }
 }
 
