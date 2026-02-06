@@ -58,12 +58,12 @@ HandleCarInput(idx)
     }
 
     ActivateWindow(excelName)
-    ExcelOptimizer(true)
 
     try
     {
         ; 1. INI에서 해당 슬롯의 탭 문자열을 그대로 읽어옴
         IniRead, savedLine, assistantTool1, slot%chooseSlotNum%, %idx%
+        savedLine := Trim(savedLine, """")
 
         if (savedLine = "ERROR" || savedLine = "") {
             MsgBox, 262208, 알림, 해당 슬롯에 데이터가 없습니다.
@@ -75,6 +75,8 @@ HandleCarInput(idx)
             MsgBox, 262208, 알림, 해당 슬롯에 차량번호가 없습니다.
             return
         }
+
+        ExcelOptimizer(true)
 
         finalLine := ReformCarInfo(row, true)
 
@@ -151,7 +153,6 @@ RegisterSlotFromExcel(idx)
     catch
     {
         RecordLog("!" idx " - 실패")
-        ExitApp
     }
 }
 

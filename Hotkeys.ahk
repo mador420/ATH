@@ -30,6 +30,7 @@ $F1::
 
 		;ControlClick, Button22, ahk_pid %tms1Pid%
 		xl.Range("P6").AutoFilter(16, "=")
+        WaitExcel()
 		GetTMSCountFromExcel()
         ExcelOptimizer(false)
 	}
@@ -198,6 +199,7 @@ $F6::
             rowObj.Cells(9).Value := "1뷰티"   ; I열 <- 고정값
 
             GuiControl, 1:, Status, 반출 -> 납품 전환 완료
+            ExcelOptimizer(false)
         }
         else if (statusVal = "납품")
         {
@@ -261,7 +263,7 @@ $F7::
         xl.Range("P" . currRow).Value := "/"
 
         ; 5. 타겟 행 찾기 및 붙여넣기
-        targetRow := targetRow := FindLastRow()
+        targetRow := FindLastRow()
 
         xl.Application.CutCopyMode := False
         Clipboard := ""
@@ -291,6 +293,7 @@ $F7::
 		GuiControl, 1:, Status, 납품 -> 반출 재입력 실패
         return
     }
+
 	SetTimer, ResetStatus, 3000
     return
 }

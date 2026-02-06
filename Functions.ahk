@@ -193,8 +193,15 @@ RegistPrograms()
 
     try
     {
-        xl := ComObjActive("Excel.Application")
-        if (!WaitExcel()) return
+        try {
+            xl := ComObjActive("Excel.Application")
+        } catch {
+            RecordLog("Excel COM 객체 연결 실패")
+            MsgBox, 262208, 오류, 엑셀과 연결할 수 없습니다. 프로그램을 재시작하세요.
+            xl := ""
+        return false
+        }
+        WaitExcel()
 
         GuiControl, , Status, 프로그램 등록 중..
 
@@ -317,10 +324,11 @@ WaitExcel() {
     Loop, %maxRetries%
     {
         try {
-            if (xl.Ready)
+            if(xl.Ready && IsObject(xl))
                 return true
+        } catch {
+            return false
         }
-        Sleep, -1    ; CPU 우선순위를 다른 프로그램에 완전히 양보
         Sleep, %sleepTime%
     }
     return false
@@ -384,32 +392,36 @@ FindLastRow()
     global xl
     try
     {
+        startRow := 7
+
+        ; A열 마지막 행
         lastRowA := xl.Cells(xl.Rows.Count, 1).End(-4162).Row
-        if (lastRowA < 7) {
-            lastRowA := 306
+        if (lastRowA < startRow) {
+            dataCount := 0
+        } else {
+            dataCount := lastRowA - (startRow - 1)
         }
 
-        dataArray := xl.Range("C1:C" . lastRowA + 1).Value
+        if (dataCount = 0) {
+            return startRow
+        }
+        ; C열을 7행부터 한번에 읽기
+
+        lastCheckRow := (startRow - 1) + dataCount
+        dataArray := xl.Range("C" startRow ":C" lastCheckRow + 1).Value
 
         currentRow := 7
 
-        Loop, % dataArray.MaxIndex()
+        Loop % dataArray.MaxIndex()
         {
-            if (A_Index < 7) {
-                continue
-            }
-
-            if (dataArray[A_Index, 1] = "")
-            {
-                currentRow := A_Index
-                break
-            }
+            if (Trim(dataArray[A_Index, 1]) = "")
+                return startRow + A_Index - 1
         }
 
-        xl.Rows(currentRow).EntireRow.Hidden := False
-        return currentRow
+        ; C열이 전부 차있으면 다음 입력 위치
+        return lastCheckRow + 1
     }
-    catch
+    catch e
     {
         RecordLog("FindLastRow - 에러 발생")
         return 7
