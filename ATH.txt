@@ -1242,27 +1242,51 @@ $!7::RegisterSlotFromExcel(7)
 ; 엑셀 찾기 창이 아닐 경우 0.001초 내에 일반 Enter를 반환합니다.
 
 $Enter::
-    ; 1. 현재 창이 엑셀 찾기 창인지 '클래스'만 빠르게 검사 (가장 빠름)
-    IfWinActive, ahk_class bosa_sdm_XL9
+    ; 1. 현재 창 클래스 확인
+    WinGetClass, vClass, A
+
+    ; [화면 디버그] 엔터 누르자마자 현재 상태를 화면에 1초간 표시
+    ToolTip, [DEBUG] Class: %vClass% | searchto: %searchto%
+    SetTimer, RemoveToolTip, -1000
+
+    ; 2. 조건 확인 (엑셀 찾기 창 클래스: bosa_sdm_XL9)
+    if (searchto = 1 && vClass = "bosa_sdm_XL9")
     {
-        ; 2. 변수 확인 및 엑셀 시트 인덱스 체크
-        if (searchto = 1)
-        {
-            try {
-                ; xl 객체의 Index 속성만 즉시 호출
-                if (xl.ActiveSheet.Index = 2) {
-                    ; Shift를 물리적으로 누른 상태에서 Enter 전송 (동작 확실)
-                    SendInput {Shift Down}{Enter}{Shift Up}
-                    return
-                }
-            } catch {
-                ; 엑셀 응답 없음 등의 예외 시 즉시 아래 일반 Enter로 통과
+        try {
+            ; 3. 엑셀 객체 연결 상태 확인
+            if !IsObject(xl) {
+                RecordLog("[DEBUG] xl 객체 연결 시도")
+                xl := ComObjActive("Excel.Application")
             }
+
+            ; 4. 시트 인덱스 추출
+            vIdx := xl.ActiveSheet.Index
+            RecordLog("[DEBUG] 감지된 시트 인덱스: " . vIdx)
+
+            ; [화면 디버그] 시트 번호 화면 표시
+            ToolTip, [DEBUG] Sheet Index: %vIdx%
+            SetTimer, RemoveToolTip, -1000
+
+            if (vIdx = 2) {
+                RecordLog("[ACTION] 2번 시트 확인 -> Shift+Enter 전송")
+                Send, +{Enter}
+                return
+            }
+        } catch e {
+            ; 5. 에러 발생 시 로그 기록
+            RecordLog("[ERROR] COM 에러: " . e.message)
+            ToolTip, [ERROR] COM Fail
+            SetTimer, RemoveToolTip, -1000
         }
     }
 
-    ; 위 조건에 해당하지 않으면 가장 빠른 방식으로 Enter 전송
-    SendInput {Enter}
+    ; 위 조건에 해당하지 않으면 일반 엔터 실행
+    Send, {Enter}
+return
+
+; ToolTip 제거용 라벨 (스크립트 하단에 두세요)
+RemoveToolTip:
+    ToolTip
 return
 
 ;=================================================================
