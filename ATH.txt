@@ -1238,28 +1238,14 @@ $!6::RegisterSlotFromExcel(6)
 $!7::RegisterSlotFromExcel(7)
 
 
+#If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 1)
+
+$NumpadEnter::
 $Enter::
-    if (searchto != 1) {
-        Send, {Enter}
-        return
-    }
+    Send, {Shift Down}{Enter}{Shift Up}
+    return
 
-    WinGetClass, vClass, A
-    if (vClass = "bosa_sdm_XL9") {
-        try {
-            vIdx := xl.ActiveSheet.Index
-
-            if (vIdx = 2) {
-                Send, +{Enter}
-                return
-            }
-        } catch {
-            ; 엑셀 응답 지연 시 오류 방지
-        }
-    }
-    Send, {Enter}
-return
-
+#If
 ;=================================================================
 ; LABELS
 ;=================================================================
