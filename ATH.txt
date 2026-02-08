@@ -1242,45 +1242,29 @@ $!7::RegisterSlotFromExcel(7)
 ; 엑셀 찾기 창이 아닐 경우 0.001초 내에 일반 Enter를 반환합니다.
 
 $Enter::
-    ; 1. 현재 창 클래스 확인
     WinGetClass, vClass, A
 
-    ; [화면 디버그] 엔터 누르자마자 현재 상태를 화면에 1초간 표시
-    ToolTip, [DEBUG] Class: %vClass% | searchto: %searchto%
-    SetTimer, RemoveToolTip, -1000
-
-    ; 2. 조건 확인 (엑셀 찾기 창 클래스: bosa_sdm_XL9)
+    ; 엑셀 찾기 창이고 searchto 값이 1일 때 동작
     if (searchto = 1 && vClass = "bosa_sdm_XL9")
     {
         try {
-            ; 3. 엑셀 객체 연결 상태 확인
-            if !IsObject(xl) {
-                RecordLog("[DEBUG] xl 객체 연결 시도")
-                xl := ComObjActive("Excel.Application")
-            }
-
-            ; 4. 시트 인덱스 추출
+            xl := ComObjActive("Excel.Application")
             vIdx := xl.ActiveSheet.Index
-            RecordLog("[DEBUG] 감지된 시트 인덱스: " . vIdx)
 
-            ; [화면 디버그] 시트 번호 화면 표시
-            ToolTip, [DEBUG] Sheet Index: %vIdx%
-            SetTimer, RemoveToolTip, -1000
+            ; 로그 기록: 어떤 시트가 감지되었는지 출력
+            RecordLog("[DEBUG] 현재 시트 번호: " . vIdx)
 
             if (vIdx = 2) {
-                RecordLog("[ACTION] 2번 시트 확인 -> Shift+Enter 전송")
+                ; 로그 기록: 실제 동작 수행 확인
+                RecordLog("[ACTION] 2번 시트 일치 -> Shift+Enter 실행")
                 Send, +{Enter}
                 return
             }
         } catch e {
-            ; 5. 에러 발생 시 로그 기록
-            RecordLog("[ERROR] COM 에러: " . e.message)
-            ToolTip, [ERROR] COM Fail
-            SetTimer, RemoveToolTip, -1000
+            RecordLog("[ERROR] 오류 발생: " . e.message)
         }
     }
 
-    ; 위 조건에 해당하지 않으면 일반 엔터 실행
     Send, {Enter}
 return
 
