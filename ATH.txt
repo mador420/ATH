@@ -1,0 +1,1513 @@
+; <COMPILER: v1.1.37.01>
+
+#SingleInstance force
+#MaxThreads 1
+SetTitleMatchMode, 2
+CoordMode, Mouse, screen
+CoordMode, Pixel, screen
+
+if !A_IsAdmin {
+    try {
+        if A_IsCompiled
+            Run *RunAs "%A_ScriptFullPath%" /force
+        else
+            Run *RunAs "%A_AhkPath%" /force "%A_ScriptFullPath%"
+    }
+    catch {
+        MsgBox, 262208, 오류, 관리자 권한 승인이 거부되었습니다. 프로그램이 종료됩니다.
+    }
+    ExitApp ; 권한을 요청한 '현재' 프로세스는 반드시 종료해야 합니다. (새 프로세스가 뜰 것이므로)
+}
+
+; ==========================================================
+; Vars.ahk - 전역 변수 및 초기 설정 관리
+; ==========================================================
+
+global iniPath := A_ScriptDir "\athsettings.ini"
+
+; 1. 기본 설정 및 자동화 관련
+global  searchStartRow, chooseSlotNum, searchto, autoslip, inputscroll, onlyexcel
+
+global midOffset := 1
+
+; 2. 엑셀 TMS 객체 관리
+global xl, excelName, tms1Pid, tms2Pid
+
+; 3. 슬롯별 전체 데이터
+global Car1Data, Car2Data, Car3Data, Car4Data, Car5Data, Car6Data, Car7Data
+
+; 4. 슬롯별 개별 상세 정보
+global car1Num, car1Name, car1Company, car1Phone, car1Content, car1Carry, car1Drop, car1Card
+global car2Num, car2Name, car2Company, car2Phone, car2Content, car2Carry, car2Drop, car2Card
+global car3Num, car3Name, car3Company, car3Phone, car3Content, car3Carry, car3Drop, car3Card
+global car4Num, car4Name, car4Company, car4Phone, car4Content, car4Carry, car4Drop, car4Card
+global car5Num, car5Name, car5Company, car5Phone, car5Content, car5Carry, car5Drop, car5Card
+global car6Num, car6Name, car6Company, car6Phone, car6Content, car6Carry, car6Drop, car6Card
+global car7Num, car7Name, car7Company, car7Phone, car7Content, car7Carry, car7Drop, car7Card
+
+; ==========================================================
+; GUI
+; ==========================================================
+Gui, Add, GroupBox, x5 y25 w210 h230
+Gui, Add, GroupBox, x220 y25 w115 h93
+Gui, Font, S15, 맑은 고딕
+Gui, Add, Text, x5 y0 w290 h25 vStatus
+Gui, Add, GroupBox, x300 y-10 w35 h40
+Gui, Add, Text, x300 y0 w35 h25 vCars Center +BackgroundTrans
+Gui, Font, S13, 맑은 고딕
+
+; 1~7번 텍스트 및 에디트(View) 생성
+Loop, 7 {
+    yPos := 10 + (A_Index * 30) ; y좌표 자동 계산 (40, 70, 100...)
+    Gui, Add, Text, x10 y%yPos% w20 h20, %A_Index%
+    Gui, Add, Edit, x25 y%yPos% w115 h25 ReadOnly vCar%A_Index%NumView
+    Gui, Add, Edit, x147 y%yPos% w60 h25 ReadOnly vCar%A_Index%NameView
+}
+
+; 라디오 버튼 1~6번
+Gui, Add, Radio, x230 y35 w50 h25 vSlot1 gSlot1, 1번
+Gui, Add, Radio, x285 y35 w50 h25 vSlot2 gSlot2, 2번
+Gui, Add, Radio, x230 y60 w50 h25 vSlot3 gSlot3, 3번
+Gui, Add, Radio, x285 y60 w50 h25 vSlot4 gSlot4, 4번
+Gui, Add, Radio, x230 y85 w50 h25 vSlot5 gSlot5, 5번
+Gui, Add, Radio, x285 y85 w50 h25 vSlot6 gSlot6, 6번
+
+Gui, Add, Button, x225 y127 w110 h25 Center gExplainBtn, 설명
+Gui, Add, Button, x225 y160 w110 h25 Center gHotkeySettingBtn, 퀵슬롯 설정
+Gui, Add, Button, x225 y193 w110 h25 Center gOtherSettingBtn, 기타 설정
+Gui, Add, Button, x225 y226 w110 h25 Center vRegisterBtn gRegisterBtn, 등록 (F11)
+
+; --- GUI 2: 상세 설정 ---
+Gui, 2: Add, GroupBox, x5 y25 w790 h230
+Gui, 2: Add, GroupBox, x800 y25 w115 h93
+Gui, 2: Font, S13, 맑은 고딕
+
+; 헤더 텍스트
+Gui, 2: Add, Text, x25 y15 w100 h25 Center, 차량 번호
+Gui, 2: Add, Text, x147 y15 w60 h25 Center, 성명
+Gui, 2: Add, Text, x214 y15 w110 h25 Center, 업체명
+Gui, 2: Add, Text, x331 y15 w125 h25 Center, 연락처
+Gui, 2: Add, Text, x463 y15 w45 h25 Center, 업무
+Gui, 2: Add, Text, x567 y15 w60 h25 Center, 상차지
+Gui, 2: Add, Text, x634 y15 w60 h25 Center, 하차지
+Gui, 2: Add, Text, x701 y15 w85 h25 Center, 카드/전산
+
+; 1~7번 상세 입력칸(Edit) 생성
+Loop, 7 {
+    yPos := 10 + (A_Index * 30)
+    Gui, 2: Add, Text, x10 y%yPos% w20 h20, %A_Index%
+    Gui, 2: Add, Edit, x25 y%yPos% w115 h25 vCar%A_Index%NumEdit
+    Gui, 2: Add, Edit, x147 y%yPos% w60 h25 vCar%A_Index%NameEdit
+    Gui, 2: Add, Edit, x214 y%yPos% w110 h25 vCar%A_Index%CompanyEdit
+    Gui, 2: Add, Edit, x331 y%yPos% w125 h25 vCar%A_Index%PhoneEdit
+    Gui, 2: Add, Edit, x463 y%yPos% w45 h25 vCar%A_Index%ContentEdit
+    Gui, 2: Add, Edit, x567 y%yPos% w60 h25 vCar%A_Index%CarryEdit
+    Gui, 2: Add, Edit, x634 y%yPos% w60 h25 vCar%A_Index%DropEdit
+    Gui, 2: Add, Edit, x701 y%yPos% w85 h25 vCar%A_Index%CardEdit
+}
+
+; GUI 2 사이드 메뉴
+Gui, 2: Add, Radio, x811 y35 w50 h25 vSettingSlot1 gSettingSlot1, 1번
+Gui, 2: Add, Radio, x866 y35 w50 h25 vSettingSlot2 gSettingSlot2, 2번
+Gui, 2: Add, Radio, x811 y60 w50 h25 vSettingSlot3 gSettingSlot3, 3번
+Gui, 2: Add, Radio, x866 y60 w50 h25 vSettingSlot4 gSettingSlot4, 4번
+Gui, 2: Add, Radio, x811 y85 w50 h25 vSettingSlot5 gSettingSlot5, 5번
+Gui, 2: Add, Radio, x866 y85 w50 h25 vSettingSlot6 gSettingSlot6, 6번
+Gui, 2: Add, Button, x811 y220 w110 h25 Center gSettingWriteBtn, 저장
+
+; --- GUI 3: 기타 설정 ---
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x25 y5 w300 h25, 입력되는 행 스크롤
+Gui, 3: Font, S12, 맑은 고딕
+Gui, 3: Add, Radio, x25 y30 w80 h25 vinputscroll1, 중앙
+Gui, 3: Add, Radio, x25 y50 w100 h25 vinputscroll2, 엑셀 기본
+
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x25 y85 w200 h25, 차량 검색 방향
+Gui, 3: Font, S12, 맑은 고딕
+Gui, 3: Add, Radio, x25 y110 w80 h25 vsearchto1, ↑위로
+Gui, 3: Add, Radio, x25 y130 w80 h25 vsearchto2, ↓아래로
+
+
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x25 y165 w300 h25, 검색 시작 행(아래로 조회시)
+Gui, 3: Add, Edit, x25 y195 w100 h25 vsearchStartRow
+
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x225 y5 w300 h25, 전표번호 단축키
+Gui, 3: Font, S12, 맑은 고딕
+Gui, 3: Add, Radio, x225 y30 w150 h25 vautoslip1, 지역별 자동입력
+Gui, 3: Add, Radio, x225 y50 w150 h25 vautoslip2, BTOS / TRDT
+
+Gui, 3: Font, S13, 맑은 고딕
+Gui, 3: Add, Text, x225 y85 w300 h25, 엑셀만 사용(TMS고장시)
+Gui, 3: Font, S12, 맑은 고딕
+Gui, 3: Add, Radio, x225 y110 w150 h25 vonlyexcel1, TMS사용
+Gui, 3: Add, Radio, x225 y130 w150 h25 vonlyexcel2, 엑셀만 사용
+
+Gui, 3: Add, Button, x240 y220 w110 h25 Center gOtherWriteBtn, 저장
+
+GuiControl, , Status,TMS, 엑셀 미등록 상태입니다
+GuiControl, , Cars, 00
+
+; ==========================================================
+; FUNCTIONS
+; ==========================================================
+;===========================================================
+;세팅 정보를 불러오는 함수
+;===========================================================
+LoadSettings() {
+    global ;
+
+    ; 일반 설정 로드
+    ReadToVar("settings", "searchStartRow", 7)
+    ReadToVar("settings", "chooseSlotNum", 1)
+
+    ReadToVar("settings", "inputscroll", 1, "radio")
+    ReadToVar("settings", "autoslip", 1, "radio")
+    ReadToVar("settings", "searchto", 1, "radio")
+    ReadToVar("settings", "onlyexcel", 1, "radio")
+
+    ; 슬롯 라디오 버튼 체크
+    if (chooseSlotNum != "") {
+        GuiControl, 1:, Slot%chooseSlotNum%, 1
+        GuiControl, 2:, SettingSlot%chooseSlotNum%, 1
+    }
+}
+
+SaveSettings() {
+    global
+	Gui, 3: Submit, NoHide
+
+    issearchOk := (searchStartRow >= 7 && searchStartRow <= 500000)
+
+
+    if (issearchOk)
+    {
+        GuiControl, 1:, Status, 기타 설정 저장 중
+
+        IniWrite, %searchStartRow%, %iniPath%, settings, searchStartRow
+        IniWrite, %searchStartRow%, %iniPath%, settings, onlyexcel
+
+        Gui, 3: Hide
+        MsgBox, 262144, 알림, 저장되었습니다.
+        GuiControl, 1:, Status, 기타 설정 저장 완료
+        SetTimer, ResetStatus, 3000
+    }
+    else
+    {
+        MsgBox, 262208, 알림, 검색 시작 행 설정 값이 범위를 초과하였습니다. (7~500000)
+    }
+
+    inputscroll := inputscroll1 ? 1 : (inputscroll2 ? 2 : 1)
+    autoslip := autoslip1 ? 1 : (autoslip2 ? 2 : 1)
+    searchto := searchto1 ? 1 : (searchto2 ? 2 : 1)
+    onlyexcel := onlyexcel1 ? 1 : (onlyexcel2 ? 2 : 1)
+
+    IniWrite, %inputscroll%, %iniPath%, settings, inputscroll
+    IniWrite, %autoslip%, %iniPath%, settings, autoslip
+    IniWrite, %searchto%, %iniPath%, settings, searchto
+    IniWrite, %onlyexcel%, %iniPath%, settings, onlyexcel
+	return
+}
+
+;===========================================================
+;INI파일의 정보를 읽어오는 공용 함수
+;===========================================================
+ReadToVar(Section, Key, DefaultValue := "", Type := "") {
+    global
+
+    IniRead, readTemp, %iniPath%, %Section%, %Key%, %DefaultValue%
+    %Key% := readTemp
+    if (Type = "radio") {
+        GuiControl, 3:, %Key%%readTemp%, 1
+    } else {
+        GuiControl, 3:, %Key%, %readTemp%
+    }
+}
+
+
+;===========================================================
+;현재 선택된 슬롯에 차량 목록을 저장하는 함수
+;===========================================================
+SaveQuickSlot(chooseSlotNum)
+{
+    if (chooseSlotNum = 0) {
+        MsgBox, 262208, 알림, 슬롯이 선택되지 않았습니다.
+        return
+    }
+
+    GuiControl, 1:, Status, %chooseSlotNum%번 슬롯 저장 중
+    Gui, 2: Submit, NoHide
+
+    IniDelete, %iniPath%, slot%chooseSlotNum%
+
+    Loop, 7
+    {
+        cIdx := A_Index
+
+        ; GUI의 v옵션 이름인 Car1NumEdit 등과 매칭되도록 구성
+        dataLine := Car%cIdx%NumEdit     . A_Tab
+                 .  Car%cIdx%NameEdit    . A_Tab
+                 .  Car%cIdx%CompanyEdit . A_Tab
+                 .  Car%cIdx%PhoneEdit   . A_Tab
+                 .  Car%cIdx%ContentEdit . A_Tab
+                 .  Car%cIdx%CarryEdit   . A_Tab
+                 .  Car%cIdx%DropEdit    . A_Tab
+                 .  "/"                  . A_Tab ; 8번 고정
+
+        Loop, 6 ; 9~14번 빈칸
+            dataLine .= A_Tab
+
+        ; 15번 항목
+        dataLine .= Car%cIdx%CardEdit
+        safeData := """" . dataLine . """"
+
+        ; INI 파일에는 키 이름을 숫자(1, 2, 3...)로 저장하여 깔끔하게 관리
+        IniDelete, %iniPath%, slot%chooseSlotNum%, %cIdx%
+        IniWrite, %safeData%, %iniPath%, slot%chooseSlotNum%, %cIdx%
+    }
+
+    IniWrite, %chooseSlotNum%, %iniPath%, settings, chooseSlotNum
+    LoadQuickSlot(chooseSlotNum)
+
+    Gui, 2: Hide
+    MsgBox, 262144, 알림, %chooseSlotNum%번 슬롯 저장 완료
+    GuiControl, 1:, Status, %chooseSlotNum%번 슬롯 저장 완료
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+;===========================================================
+; 퀵슬롯 차량목록을 불러오는 함수
+;===========================================================
+LoadQuickSlot(slotNum) {
+
+    global
+
+    fields := ["Num", "Name", "Company", "Phone", "Content", "Carry", "Drop", "Card"]
+
+    Loop, 7 {
+        cIdx := A_Index
+        IniRead, rawLine, %iniPath%, slot%slotNum%, %cIdx%, %A_Space%
+        Car%cIdx%Data := rawLine
+        rawLine := Trim(rawLine, """")
+        row := StrSplit(rawLine, A_Tab)
+
+        for fIdx, fName in fields {
+            val := (fName = "Card") ? row[15] : row[fIdx]
+            ctrlName := "Car" . cIdx . fName
+            GuiControl, 2:, % ctrlName . "Edit", %val%
+
+            if (fName = "Num" || fName = "Name") {
+                GuiControl, 1:, % ctrlName . "View", %val%
+            }
+        }
+    }
+}
+
+
+;===========================================================
+;TMS와 엑셀을 등록하는 함수
+;===========================================================
+RegistPrograms()
+{
+    global
+
+    if(onlyexcel = 1){
+        IfWinNotExist, [WMSDB] AMOREPACIFIC Transportation Management System
+        {
+            RecordLog("TMS 미실행 등록시도")
+            MsgBox, 262208, 알림, TMS 프로그램이 실행되어지지 않았습니다.`n실행 후 세팅을 진행하여 주세요.
+            return
+        }
+
+        GroupAdd, tmsWindows, [WMSDB] AMOREPACIFIC Transportation Management System
+        GroupActivate, tmsWindows
+        WinGetText, textCheck, [WMSDB] AMOREPACIFIC Transportation Management System
+
+        if (InStr(textCheck, "차량입출조회") > 0)
+        {
+            WinGet, tms1Pid, PID, [WMSDB] AMOREPACIFIC Transportation Management System
+            GroupActivate, tmsWindows
+            WinGet, tms2Pid, PID, [WMSDB] AMOREPACIFIC Transportation Management System
+        }
+        else
+        {
+            WinGet, tms2Pid, PID, [WMSDB] AMOREPACIFIC Transportation Management System
+            GroupActivate, tmsWindows
+            WinGet, tms1Pid, PID, [WMSDB] AMOREPACIFIC Transportation Management System
+        }
+}
+
+
+
+    FormatTime, excelName,, yyyy년 MM월 dd일 일일 차량현황
+    if (!CheckExcel())
+    {
+        return
+    }
+
+    try
+    {
+        try {
+            xl := ComObjActive("Excel.Application")
+        } catch {
+            RecordLog("Excel COM 객체 연결 실패")
+            MsgBox, 262208, 오류, 엑셀과 연결할 수 없습니다. 엑셀을 재시작 하거나 관리자권한으로 실행하세요.
+            xl := ""
+        return false
+        }
+        WaitExcel()
+
+        GuiControl, , Status, 프로그램 등록 중..
+
+        ; 창 위치 및 레이아웃 조정
+        ActivateWindow(excelName)
+        WinMove, ahk_pid %tms1Pid%, , 0, 291
+        WinMove, ahk_pid %tms2Pid%, , 895, 291
+        WinMove, %excelName%, , 1912, -8
+
+        try {
+            ; 현재 화면에 보이는 행 개수를 구해 절반을 미리 계산
+            midOffset := Round(xl.ActiveWindow.VisibleRange.Rows.Count / 2)
+        }
+
+        Gui, Show, x0 y0 w345 h264, Amore Transportation Helper
+        WinMaximize, %excelName%
+        ActivateWindow(excelName)
+    }
+    catch
+    {
+        RecordLog("등록 실패")
+        return
+    }
+    GuiControl, , Status, 프로그램 등록 완료.
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+;===========================================================
+; 로그 생성
+;===========================================================
+RecordLog(sentence)
+{
+	FileAppend,[%A_MM%-%A_DD% / %A_Hour%:%A_Min%:%A_Sec%] - [%sentence%]`n, ATH_Log.txt
+}
+
+
+;===========================================================
+; TMS 체크
+;===========================================================
+CheckTMS(alert := false, callerName := "", checkActive := false) {
+    global
+
+    ; 엑셀만 사용상태
+    if(onlyexcel != 1){
+        if(alert) { ;알림띄우고 중단해야 할 경우
+            MsgBox, 262208, 알림, 엑셀만 사용하도록 설정되어있습니다.`n기타 설정에서 TMS 사용으로 변경하시고`n[F11]키를 눌러 재등록 후 다시 시도해 주세요.
+            return false
+        }
+        return true ; 아니면 통과
+    } else { ; TMS사용설정이라 체크 함
+
+        if (tms1Pid = "" || tms2Pid = "") {
+            RecordLog("TMS 미등록 시도")
+            MsgBox, 262208, 알림, TMS 조회창의 PID가 적용되지 않았습니다.
+            return false ; 실패 신호
+        }
+
+        if (!WinExist("ahk_pid " . tms1Pid) || !WinExist("ahk_pid " . tms2Pid)) {
+            RecordLog("TMS pid 에러")
+            MsgBox, 262208, 알림, TMS 조회창을 찾을 수 없습니다.
+            return false
+        }
+
+        ;활성화 체크루트
+        if(checkActive && !WinActive("ahk_pid " . tms2Pid)){
+            msg := ""
+            switch callerName
+            {
+                case "Insert":
+                    msg := "TMS 등록창이 활성화 되지 않은 채 [Insert]키를 눌렀습니다.`nTMS 등록창을 클릭해 활성화 한 후 다시 시도해주세요."
+                case "ScrollLock":
+                    msg := "TMS 등록창이 활성화 되지 않은 채 [ScrollLock]키를 눌렀습니다.`nTMS 등록창을 클릭해 활성화 한 후 다시 시도해주세요."
+                case "Pause":
+                    msg := "TMS 등록창이 활성화 되지 않은 채 [Pause]키를 눌렀습니다.`nTMS 등록창을 클릭해 활성화 한 후 다시 시도해주세요."
+                default:
+                    msg := "TMS 등록창이 활성화 되지 않았습니다."
+            }
+            MsgBox, 262208, 알림, % msg
+            return false
+        }
+    }
+    return true
+}
+
+;===========================================================
+; 엑셀 체크
+;===========================================================
+CheckExcel(checkActive := false, callerName := "") {  ; 기본값은 false (체크 안 함)
+    global
+
+    Process, Exist, Excel.exe
+    if (!ErrorLevel)
+    {
+        RecordLog(callerName . " - 엑셀 프로세스 없음")
+        MsgBox, 262208, 알림, 엑셀 프로그램이 실행되어 있지 않습니다.`n엑셀을 먼저 실행해 주세요.
+        return false
+    }
+
+    ; 1. 엑셀 창 존재 여부 및 파일명 등록 확인
+    if !WinExist(excelName)
+    {
+        if (excelName = "")
+        {
+            RecordLog("엑셀 미등록 시도")
+            MsgBox, 262208, 알림, 일일 차량현황 엑셀 파일이 적용되지 않았습니다.`nF11을 눌러 세팅을 진행하여 주세요.
+        }
+        else
+        {
+            RecordLog("엑셀 상이 시도")
+            MsgBox, 262208, 알림, 일일 차량현황 엑셀 파일의 제목이`n현재날짜와 다르거나 실행 되지 않았습니다.`n현재 날짜의 일일 차량현황 엑셀파일을 실행하여 주세요.
+        }
+        return false
+    }
+
+    ; 2. 엑셀 창이 활성화(맨 위) 되어 있는지 확인, false 시 체크하지 않음
+    if (checkActive && !WinActive(excelName))
+    {
+        msg := ""
+        switch callerName
+        {
+            case "F6":
+                msg := "엑셀이 활성화 되지 않은 채 [F6] 버튼을 눌렀습니다.`n상하차 전환을 할 차량정보의 행을 선택 후 눌러주세요."
+            case "F7":
+                msg := "엑셀이 활성화 되지 않은 채 [F7] 버튼을 눌렀습니다.`n납품 차량정보의 행을 선택 후 눌러주세요."
+            case "ALT":
+                msg := "엑셀이 활성화 되지 않은 채 [퀵슬롯 등록] 버튼을 눌렀습니다.`n등록할 차량의 행을 선택 후 다시 시도해 주세요."
+            case "T":
+                msg := "엑셀이 활성화 되지 않은 채 [TRDT] 버튼을 눌렀습니다.`n해당 문구를 입력할 셀을 선택하시고 다시 시도해 주세요."
+            case "B":
+            msg := "엑셀이 활성화 되지 않은 채 [BTOS] 버튼을 눌렀습니다.`n해당 문구를 입력할 셀을 선택하시고 다시 시도해 주세요."
+            default:
+                msg := "엑셀이 활성화 되어지지 않은 상태입니다."
+        }
+        MsgBox, 262208, 알림, % msg
+        return false
+    }
+
+    return true
+}
+
+WaitExcel() {
+    global
+    maxRetries := 100
+    sleepTime := 10
+
+    Loop, %maxRetries%
+    {
+        try {
+            if(xl.Ready && IsObject(xl))
+                return true
+        } catch {
+            return false
+        }
+        Sleep, %sleepTime%
+    }
+    return false
+}
+
+
+ReformCarInfo(inputData, time := false)
+{
+    if !IsObject(inputData){
+        dataArr := StrSplit(inputData, A_Tab)
+    }
+    else {
+        dataArr := inputData
+    }
+
+    isOut := (dataArr[5] = "반출")
+
+    finalLine := ""
+    Loop, 15
+    {
+        val := dataArr[A_Index]
+
+        if (A_Index = 8) {
+            val := "/"
+        } else if (isOut && A_Index >= 9 && A_Index <= 11) {
+            val := ""
+        }
+        else if (A_Index = 12) {
+            if(isOut) {
+                val := ""
+            }
+            else if(val != "/"){
+                val := ""
+            }
+        }
+
+        else if (A_Index = 13) {
+            if (time) {
+                FormatTime, nowTime,, HH:mm
+                val := nowTime
+            }
+            else {
+                val := ""
+            }
+        }
+        else if (A_Index = 14) {
+            Val := ""
+        }
+
+        finalLine .= (A_Index = 1 ? "" : A_Tab) . val
+    }
+    return finalLine
+}
+
+;===========================================================
+; 가장 아래에 있는 행을 찾는 함수
+; @ return Row
+;===========================================================
+FindLastRow()
+{
+    global xl
+    try
+    {
+        startRow := 7
+
+        ; A열 마지막 행
+        lastRowA := xl.Cells(xl.Rows.Count, 1).End(-4162).Row
+        if (lastRowA < startRow) {
+            dataCount := 0
+        } else {
+            dataCount := lastRowA - (startRow - 1)
+        }
+
+        if (dataCount = 0) {
+            return startRow
+        }
+        ; C열을 7행부터 한번에 읽기
+
+        lastCheckRow := (startRow - 1) + dataCount
+        dataArray := xl.Range("C" startRow ":C" lastCheckRow + 1).Value
+
+        currentRow := 7
+
+        Loop % dataArray.MaxIndex()
+        {
+            if (Trim(dataArray[A_Index, 1]) = "")
+                return startRow + A_Index - 1
+        }
+
+        ; C열이 전부 차있으면 다음 입력 위치
+        return lastCheckRow + 1
+    }
+    catch e
+    {
+        RecordLog("FindLastRow - 에러 발생")
+        return 7
+    }
+}
+
+;===========================================================
+; 현재 활성화 되어있는 행에 차량정보가 존재하는지 확인
+; @ return boolean
+;===========================================================
+CarExist() {
+    global xl
+
+    Send, {Ctrl Down}{Enter}{Ctrl Up}
+
+    selectionRow := xl.ActiveCell.Row
+    rawCarNum := xl.Cells(selectionRow, 3).Value
+    checkCarNum := Trim(rawCarNum)
+
+    if (checkCarNum = "" || checkCarNum = "차량번호")
+    {
+        MsgBox, 262208, 알림, 차량 정보가 없는 행입니다.
+        return false
+    }
+    return true
+}
+
+
+;===========================================================
+; 엑셀에 보이고 있는 /전산 차량 갯수를 GUI에 반영
+;===========================================================
+GetTMSCountFromExcel() {
+    global xl
+    try {
+        lastRow := xl.ActiveSheet.Cells(xl.Rows.Count, "Q").End(-4162).Row
+
+        if (lastRow < 7) {
+            count := 0
+        } else {
+            formula = SUMPRODUCT(SUBTOTAL(3, OFFSET(Q7, ROW(Q7:Q%lastRow%)-7, 0)), --(ISNUMBER(SEARCH("전산", Q7:Q%lastRow%))))
+count := Round(xl.Evaluate(formula))
+        }
+
+        GuiControl, 1:, Cars, % Format("{:02}", count)
+        GuiControl, 1:MoveDraw, Cars
+    } catch {
+        GuiControl, 1:, Cars, 00
+        GuiControl, 1:MoveDraw, Cars
+    }
+return
+}
+
+AutoSlipInput(){
+    global xl
+
+    selectionRow := xl.ActiveCell.Row
+	rawCarType := xl.Cells(selectionRow, 8).Value
+	checkValue := Trim(rawCarType)
+
+	FormatTime, datePart,, yyMMdd
+	finaldate := ""
+
+	switch checkValue
+	{
+		case "1뷰티":
+			finaldate := "11110" . datePart . "00"
+		case "2뷰티":
+			finaldate := "1BTOS" . datePart . "00"
+		case "3뷰티":
+			finaldate := "1TRDT" . datePart . "00"
+		case "대전":
+			finaldate := "11111" . datePart . "00"
+		case "김천":
+			finaldate := "11120" . datePart . "00"
+		default:
+			finaldate := ""
+	}
+
+	if (finaldate != "") {
+        Clipboard := ""
+        Clipboard := finaldate
+        ClipWait, 1
+        Send, {F2}^v{Ctrl Up}
+        GuiControl, 1:, Status, 전표번호 입력
+    }
+	else {
+        GuiControl, 1:, Status, 일치하는 지역 없음
+    }
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+;===========================================================
+; WinActive를 이미 활성화 되어있으면 skip 하는 함수
+; @param winTitle
+;===========================================================
+ActivateWindow(winTitle)
+{
+    if (WinActive(winTitle))
+    {
+        return
+    }
+    WinActivate, %winTitle%
+    WinWaitActive, %winTitle%, , 1
+
+    Sleep, 50
+}
+
+;===========================================================
+; 엑셀의 최적화 기능을 켜고 끔
+; @param boolean
+;===========================================================
+ExcelOptimizer(on)
+{
+    global xl
+    try
+    {
+        if (on)
+        {
+            xl.ScreenUpdating := False
+            xl.EnableEvents := False
+            xl.Calculation := -4135
+        }
+        else
+        {
+            xl.Calculation := -4105
+            xl.EnableEvents := True
+            xl.ScreenUpdating := True
+        }
+    }
+}
+
+;===========================================================
+; 엑셀의 시트 이동 함수 이미 선택된 시트이면 아무 동작 하지 않음
+; @param sheetRef
+;==========================================================
+MoveSheet(sheetRef)
+{
+    global xl
+    try
+    {
+        if (RegExMatch(sheetRef, "^\d+$"))
+        {
+            if (xl.ActiveSheet.Index != sheetRef)
+                xl.Sheets(sheetRef).Select
+        }
+        else
+        {
+            if (xl.ActiveSheet.Name != sheetRef)
+                xl.Sheets(sheetRef).Select
+        }
+        WaitExcel()
+    }
+}
+
+SafeClick(control, pid) {
+    ControlClick, %control%, ahk_pid %pid%,,,, D NA
+    Sleep, 25
+    ControlClick, %control%, ahk_pid %pid%,,,, U NA
+}
+
+
+
+LoadSettings()
+LoadQuickSlot(chooseSlotNum)
+
+Gui, Show, x0 y0 w345 h264, Amore Transportation Helper
+return
+
+;=============================================================
+;핫키
+;=============================================================
+
+$F11::
+{
+	RecordLog("F11 Pressed")
+	RegistPrograms()
+	return
+}
+
+$F1::
+{
+	if(!CheckTMS())	{
+        return
+    }
+	if(!CheckExcel()) {
+		return
+	}
+
+    if(onlyexcel = 1){
+        ActivateWindow("ahk_pid " . tms1Pid)
+    }
+	ActivateWindow(excelName)
+
+	Sleep, 20
+
+	try
+    {
+		GuiControl, 1:, Status,엑셀, TMS 새로고침중
+
+        ExcelOptimizer(true)
+
+        if (xl.ActiveSheet.Index != 1) {
+            xl.Sheets(1).Activate
+            WaitExcel()
+        }
+
+        if(onlyexcel = 1){
+            SafeClick("Button22", tms1Pid)
+        }
+		xl.Range("P6").AutoFilter(16, "=")
+        WaitExcel()
+		GetTMSCountFromExcel()
+        ExcelOptimizer(false)
+	}
+    catch
+    {
+        RecordLog("F1 - 실패 (엑셀 객체 오류)")
+        ExcelOptimizer(false)
+        return
+    }
+
+    ; 5. 마무리 및 상태 초기화
+    GuiControl, 1:, Status, 엑셀, TMS 새로고침 완료
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+$F3::
+{
+	if(!CheckExcel()) {
+		return
+	}
+	GuiControl, 1:, Status, 차량번호 조회로 이동
+	ActivateWindow(excelName)
+    ExcelOptimizer(true)
+
+	try {
+		MoveSheet(2)
+
+		xl.Columns("C").Select
+		WaitExcel()
+
+		if (searchto = 1) {
+            lastRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row
+			targetRow := xl.Cells(lastRow, 3).End(-4162).Row
+		} else if (searchto = 2) {
+			targetRow := RegExReplace(searchStartRow, "\D")
+		}
+		if (targetRow < 6) {
+			targetRow := 7
+		}
+
+        ExcelOptimizer(false)
+
+		xl.Cells(targetRow, 3).Activate
+		WaitExcel()
+
+		Send, ^f
+		Send, {Ctrl up}{End}
+        Send, +{Home}
+	} catch {
+        ExcelOptimizer(false)
+		RecordLog("F3 동작중 실패")
+	}
+
+	GuiControl, 1:, Status, 대기 중
+	return
+}
+
+
+$F4::
+{
+    if(!CheckExcel()) {
+		return
+	}
+
+    ; 찾기 창이나 엑셀 자체가 활성화되어 있는지 추가 체크
+    if !WinActive("찾기 및 바꾸기") && !WinActive(excelName)	{
+        RecordLog("F4 - 엑셀 미활성화 시도")
+        MsgBox, 262208, 알림, [F4]는 찾기 도중 혹은 엑셀 활성화 상태에서만 가능합니다.`n찾거나 복사할 차량정보를 선택 후 눌러주세요.
+        return
+    }
+
+    GuiControl, 1:, Status, 차량정보 복사 중
+
+    try	{
+        ; 2. 차량번호 유효성 검사 (키보드 전송 대신 객체로 직접 확인)
+        selectionRow := xl.ActiveCell.Row
+        rawCarNum := xl.Cells(selectionRow, 3).Value ; C열(3) 값 확인
+		checkCarNum := Trim(rawCarNum)
+
+        if (checkCarNum = "" || checkCarNum = "차량번호")
+        {
+            RecordLog("F4 - 차량번호 빈칸")
+            MsgBox, 262208, 알림, 차량번호 셀이 빈칸입니다.`n복사할 차량정보 행을 선택 후 눌러주세요.
+            SetTimer, ResetStatus, 3000
+            return
+        }
+		lastVal := xl.Cells(selectionRow, 17).Value ; Q열 (카드/전산 정보)
+
+        ; 3. 데이터 복사 (C열~Q열)
+        rowLine := "C" . selectionRow . ":Q" . selectionRow
+        xl.Range(rowLine).Copy
+        ClipWait, 1
+
+        ; 4. 탭(A_Tab) 기준으로 분리하여 배열 생성
+        newRowData := ReformCarInfo(Clipboard, true)
+
+		xl.Application.CutCopyMode := False
+		Clipboard := ""
+		Clipboard := newRowData
+		ClipWait, 1
+
+        ActivateWindow(excelName)
+        ExcelOptimizer(true)
+		MoveSheet(1)
+
+		targetRow := FindLastRow()
+        ExcelOptimizer(false)
+
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
+
+		xl.Range("C" . targetRow).Select
+		WaitExcel()
+        Send, ^v{Ctrl Up}
+		WaitExcel()
+
+        if (lastVal = "카드/전산" || lastVal = "48/전산" || lastVal = "50/전산")	{
+            xl.Range("K" . targetRow).Select
+		}
+        else {
+            xl.Range("Q" . targetRow).Select
+		}
+
+        ; 성공 마무리
+        GuiControl, 1:, Status, 차량정보 복사 완료
+        SetTimer, ResetStatus, 3000
+    }
+    catch
+    {
+        ExcelOptimizer(false)
+        RecordLog("F4 - 실패")
+        MsgBox, 262208, 에러, 엑셀 작업 중 오류가 발생했습니다.
+    }
+    return
+}
+
+$F6::
+{
+	if(!CheckExcel(true, "F6")) {
+		return
+	}
+	if(!CarExist()){
+		return
+	}
+
+    try
+    {
+        ExcelOptimizer(true)
+        ; 1. 현재 선택된 행 객체 생성
+        selectionRow := xl.Selection.Row
+        rowObj := xl.ActiveSheet.Rows(selectionRow)
+
+        ; 2. 각 열의 값을 변수에 저장 (객체 호출 최소화)
+        statusVal := rowObj.Cells(7).Value ; G열
+        hVal      := rowObj.Cells(8).Value ; H열
+        iVal      := rowObj.Cells(9).Value ; I열
+
+        ; 3. 정확한 문자열 비교 (반드시 "반출" 또는 "납품"일 때만)
+        if (statusVal = "반출")
+        {
+            rowObj.Cells(7).Value := "납품"    ; G열 변경
+            rowObj.Cells(8).Value := iVal      ; H열 <- 기존 I열 값
+            rowObj.Cells(9).Value := "1뷰티"   ; I열 <- 고정값
+
+            GuiControl, 1:, Status, 반출 -> 납품 전환 완료
+            ExcelOptimizer(false)
+        }
+        else if (statusVal = "납품")
+        {
+            rowObj.Cells(7).Value := "반출"    ; G열 변경
+            rowObj.Cells(8).Value := "1뷰티"   ; H열 <- 고정값
+            rowObj.Cells(9).Value := hVal      ; I열 <- 기존 H열 값
+
+            GuiControl, 1:, Status, 납품 -> 반출 전환 완료
+            ExcelOptimizer(false)
+        }
+    }
+    catch
+    {
+        RecordLog("F6 - 실패")
+        ExcelOptimizer(false)
+    }
+
+    SetTimer, ResetStatus, 3000
+    return
+
+}
+
+$F7::
+{
+	if(!CheckExcel(true, "F7")) {
+		return
+	}
+	if(!CarExist()){
+		return
+	}
+
+    GuiControl, 1:, Status, 납품 -> 반출 재입력 중
+
+    try
+    {
+        currRow := xl.Selection.Row
+
+		sourceType := xl.Range("G" . currRow).Value ; 5번째 열(G열)
+        if (sourceType != "납품")
+        {
+            MsgBox, 262208, 알림, 납품 데이터가 아닙니다.
+            xl.Application.CutCopyMode := False
+            return
+        }
+
+        Clipboard := ""
+        xl.Range("C" . currRow . ":R" . currRow).Copy
+        ClipWait, 1
+
+        dataArr := StrSplit(Clipboard, A_Tab)
+
+        dataArr[5] := "반출"     ; G열
+        placeTemp := dataArr[6]  ; 기존 H열(장소1) 백업
+        dataArr[6] := "1뷰티"    ; H열에 새 값 주입
+        dataArr[7] := placeTemp  ; I열에 기존 장소1 주입
+
+        newRowData := ReformCarInfo(dataArr, true)
+
+        ; 4. 기존 행 P열 수정 (이건 개별 수정 필수)
+        ExcelOptimizer(true)
+        xl.Range("P" . currRow).Value := "/"
+
+        ; 5. 타겟 행 찾기 및 붙여넣기
+        targetRow := FindLastRow()
+
+        xl.Application.CutCopyMode := False
+        Clipboard := ""
+        Clipboard := newRowData
+        ClipWait, 1
+
+        ExcelOptimizer(false)
+
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
+
+		xl.Range("C" . targetRow).Select
+		WaitExcel()
+        Send, ^v{Ctrl Up}
+		WaitExcel()
+		xl.Range("K" . targetRow).Select
+
+		GuiControl, 1:, Status, 납품 -> 반출 재입력 완료
+
+    }
+    catch
+    {
+        ExcelOptimizer(false)
+        RecordLog("F7 - 실패")
+		GuiControl, 1:, Status, 납품 -> 반출 재입력 실패
+        return
+    }
+
+	SetTimer, ResetStatus, 3000
+    return
+}
+
+
+$NumLock::
+{
+	if(!CheckExcel(true)) {
+		return
+	}
+    Send, /전산
+    GuiControl, 1:, Status, "/전산" 입력
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+$Insert::
+{
+    if(!CheckTMS(true, "Insert")) {
+        return
+    }
+    if(!CheckExcel(true)) {
+		return
+	}
+
+    ; 편집모드 해제
+    Send, {Ctrl Down}{Enter}{Ctrl up}
+
+    ; 현재 선택된 셀의 값 가져오기
+    try {
+        inputCarNum := xl.Cells(xl.ActiveCell.Row, 3).Value
+
+        if(inputCarNum = "" || inputCarNum = "차량번호") {
+            RecordLog("Insert - 빈칸 시도")
+            MsgBox, 262208, 알림, 차량번호 셀이 빈칸입니다.`n입력할 차량정보 행을 선택 후 눌러주세요.
+            return
+        }
+    } catch {
+        RecordLog("Insert - 엑셀 객체 연결 실패")
+        return ; ExitApp 보다는 return으로 핫키만 종료하는 것이 안전합니다.
+    }
+
+    ; 3. TMS 입력 작업 시작
+    GuiControl, 1:, Status, 차량 정보 입력 중
+
+    ; TMS 창 활성화 및 대기
+
+    ActivateWindow("ahk_pid " . tms2Pid)
+
+
+    ; 텍스트 입력 (ControlSetText는 신뢰도가 높지만 입력 후 대기가 필요할 수 있음)
+    ControlSetText, PBEDIT1052, %inputCarNum%, ahk_pid %tms2Pid%
+    sleep 50
+    ; 버튼 클릭
+    SafeClick("Button9", tms2Pid)
+    sleep 50
+
+    MouseMove, 1395, 407, 0
+
+    GuiControl, 1:, Status, 차량 정보 입력 완료
+    SetTimer, ResetStatus, 3000
+
+    return
+}
+
+$^Tab::
+{
+	if(!CheckExcel(true)) {
+		return
+	}
+
+    FormatTime, nowTime,, HH:mm
+    Clipboard := nowTime
+    ClipWait, 1
+    Send, {Ctrl Down}v{Ctrl Up}
+    GuiControl, 1:, Status, 현재시간 입력
+    SetTimer, ResetStatus, 3000
+    return
+}
+
+$^t::
+{
+	if(!CheckExcel(true, "T")) {
+		return
+	}
+	if (!CarExist()) {
+		return
+	}
+	if (autoslip = 1) {
+		AutoSlipInput()
+	} else {
+		Clipboard := "TRDT"
+		ClipWait, 1
+		Send, {F2}^v{Ctrl Up}
+		GuiControl, 1:, Status, "TRDT" 입력
+		SetTimer, ResetStatus, 3000
+	}
+    return
+}
+
+$^b::
+{
+	if(!CheckExcel(true, "B")) {
+		return
+	}
+	if (!CarExist()) {
+		return
+	}
+	if (autoslip = 1) {
+		AutoSlipInput()
+	} else {
+		Clipboard := "BTOS"
+		ClipWait, 1
+		Send, {F2}^v{Ctrl Up}
+		GuiControl, 1:, Status, "BTOS" 입력
+		SetTimer, ResetStatus, 3000
+	}
+    return
+}
+
+$ScrollLock::
+{
+    if(!CheckTMS(true, "ScrollLock", true)) {
+        return
+    }
+    ActivateWindow("ahk_pid " . tms2Pid)
+    SafeClick("Button12", tms2Pid)
+    ActivateWindow("ahk_pid " . tms1Pid)
+    SafeClick("Button22", tms1Pid)
+    return
+}
+
+$Pause::
+{
+    if(!CheckTMS(true, "Pause", true)) {
+        return
+    }
+    ActivateWindow("ahk_pid " . tms2Pid)
+    SafeClick("Button15", tms2Pid)
+	return
+}
+
+$^1::HandleCarInput(1)
+$^2::HandleCarInput(2)
+$^3::HandleCarInput(3)
+$^4::HandleCarInput(4)
+$^5::HandleCarInput(5)
+$^6::HandleCarInput(6)
+$^7::HandleCarInput(7)
+
+$!1::RegisterSlotFromExcel(1)
+$!2::RegisterSlotFromExcel(2)
+$!3::RegisterSlotFromExcel(3)
+$!4::RegisterSlotFromExcel(4)
+$!5::RegisterSlotFromExcel(5)
+$!6::RegisterSlotFromExcel(6)
+$!7::RegisterSlotFromExcel(7)
+
+
+; #If를 사용하지 않고 내부에서 판단하되,
+; 엑셀 찾기 창이 아닐 경우 0.001초 내에 일반 Enter를 반환합니다.
+
+$Enter::
+    ; 1. 현재 창이 엑셀 찾기 창인지 '클래스'만 빠르게 검사 (가장 빠름)
+    IfWinActive, ahk_class bosa_sdm_XL9
+    {
+        ; 2. 변수 확인 및 엑셀 시트 인덱스 체크
+        if (searchto = 1)
+        {
+            try {
+                ; xl 객체의 Index 속성만 즉시 호출
+                if (xl.ActiveSheet.Index = 2) {
+                    ; Shift를 물리적으로 누른 상태에서 Enter 전송 (동작 확실)
+                    SendInput {Shift Down}{Enter}{Shift Up}
+                    return
+                }
+            } catch {
+                ; 엑셀 응답 없음 등의 예외 시 즉시 아래 일반 Enter로 통과
+            }
+        }
+    }
+
+    ; 위 조건에 해당하지 않으면 가장 빠른 방식으로 Enter 전송
+    SendInput {Enter}
+return
+
+;=================================================================
+; LABELS
+;=================================================================
+ResetStatus:
+	GuiControl, , Status, 대기중
+	return
+
+GuiClose:
+	ExitApp
+
+ExplainBtn:
+	MsgBox, 262208, 도움말,
+	(
+[F1] - 차량 입출 TMS 새로고침, 엑셀 출문 필터링
+[F3] - 통합차량 조회 -> 차량번호로 찾기. 설정 검색방향 선택시
+       '위로' = 전날의 첫행부터, '아래로' = 지정한 행부터 시작
+[F4] - 현재 선택된 행의 차량정보를 일일차량현황 빈칸에 입력
+[F6] - 납품 <-> 반출 전환
+[F7] - 납품 -> 반출로 빈칸에 입력
+[F11] - TMS, 차량현황 엑셀을 프로그램에 등록
+
+[CTRL]+[1~7] - 퀵슬롯에 저장된 차량정보 빈칸에 입력
+[ALT]+[1~7] - 선택한 행의 차량정보 퀵슬롯에 등록
+
+[NUMLK] - "/전산" 입력
+[CTRL]+[TAB] - 현재 시간 입력
+[CTRL]+[B,T] - 설정에 따라 출고지별 전표번호 입력
+               또는 "BTOS","TRDT" 입력
+
+[INS] - 현재 선택된 행의 차량번호를 TMS 등록창에 입력
+[SCRLK] - TMS 차량입출등록 창 저장버튼 클릭
+[PAUSE] - TMS 차량입출등록 창 취소버튼 클릭
+
+* 처음 실행 후 차량 조회, 등록 TMS를 실행하고
+  오늘 날짜의 일일차량 엑셀 파일을 열고 등록을 진행해 주세요
+
+* 작동이 아예 멈추거나 문제가 생겼을땐 껐다키고
+  다시 등록해 사용해주세요
+
+* TMS이상으로 TMS가 켜지지 않을땐
+  기타설정에서 '엑셀만 사용'을 선택하고 사용해주세요
+
+* 구버전에 없던 문제가 생기면 임시방편으로
+  구버전 'AssistantTool'을 사용해주세요
+)
+	return
+
+HotkeySettingBtn:
+	Gui, 2: Show, x430 y0 w935 h264, 퀵슬롯 설정
+	return
+
+OtherSettingBtn:
+	LoadSettings()
+	Gui, 3: Show, x430 y0 w450 h264, 기타 설정
+	return
+
+RegisterBtn:
+	RecordLog("RegisterBtn Pressed")
+	RegistPrograms()
+	return
+
+
+Slot1:
+	HandleSlotSelect(1)
+	return
+Slot2:
+	HandleSlotSelect(2)
+	return
+Slot3:
+	HandleSlotSelect(3)
+	return
+Slot4:
+	HandleSlotSelect(4)
+	return
+Slot5:
+	HandleSlotSelect(5)
+	return
+Slot6:
+	HandleSlotSelect(6)
+	return
+
+SettingSlot1:
+	HandleSettingSlotSelect(1)
+	return
+SettingSlot2:
+	HandleSettingSlotSelect(2)
+	return
+SettingSlot3:
+	HandleSettingSlotSelect(3)
+	return
+SettingSlot4:
+	HandleSettingSlotSelect(4)
+	return
+SettingSlot5:
+	HandleSettingSlotSelect(5)
+	return
+SettingSlot6:
+	HandleSettingSlotSelect(6)
+    return
+
+SettingWriteBtn:
+	SaveQuickSlot(chooseSlotNum)
+    return
+
+OtherWriteBtn:
+    SaveSettings()
+    return
+
+;=======================================================================================================================
+HandleSlotSelect(slotNum)
+{
+    global chooseSlotNum
+
+    chooseSlotNum := slotNum
+    IniWrite, %slotNum%, %iniPath%, settings, chooseSlotNum
+    LoadQuickSlot(slotNum)
+
+    GuiControl, 2:, SettingSlot%slotNum%, 1
+    GuiControl, , Status, %slotNum%번 슬롯 선택 완료.
+
+    SetTimer, ResetStatus, 3000
+}
+
+HandleSettingSlotSelect(slotNum)
+{
+    global chooseSlotNum
+
+    chooseSlotNum := slotNum
+    IniWrite, %slotNum%, %iniPath%, settings, chooseSlotNum
+    LoadQuickSlot(slotNum)
+
+    GuiControl, 1:, Slot%slotNum%, 1
+    GuiControl, 1:, Status, %slotNum%번 슬롯 설정 선택 완료
+
+    SetTimer, ResetStatus, 3000
+}
+
+
+HandleCarInput(idx)
+{
+    global
+
+    if(!CheckExcel()) {
+        return
+    }
+
+    ActivateWindow(excelName)
+
+    try
+    {
+        ; 1. INI에서 해당 슬롯의 탭 문자열을 그대로 읽어옴
+        IniRead, savedLine, %iniPath%, slot%chooseSlotNum%, %idx%
+        savedLine := Trim(savedLine, """")
+
+        if (savedLine = "ERROR" || savedLine = "") {
+            MsgBox, 262208, 알림, 해당 슬롯에 데이터가 없습니다.
+            return
+        }
+        row := StrSplit(savedLine, A_Tab)
+
+        if (Trim(row[1]) = "") {
+            MsgBox, 262208, 알림, 해당 슬롯에 차량번호가 없습니다.
+            return
+        }
+
+        ExcelOptimizer(true)
+
+        finalLine := ReformCarInfo(row, true)
+
+        MoveSheet(1)
+
+        ; 빈 행 찾기
+        targetRow := FindLastRow()
+
+        Clipboard := finalLine
+        ClipWait, 1
+
+        if (midOffset > 1 && inputscroll = 1) {
+            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
+        }
+
+        xl.Range("C" . targetRow).Select
+        WaitExcel()
+        ExcelOptimizer(false)
+        Send, ^v{Ctrl Up}
+        WaitExcel()
+
+        ;xl.Range("O" . targetRow).NumberFormat := "HH:mm;@" ; 서식 지정
+        lastVal := xl.Cells(targetRow, 17).Value ; Q열 (카드/전산 정보)
+
+        if (lastVal = "카드/전산" || lastVal = "48/전산" || lastVal = "50/전산") {
+            xl.Range("K" . targetRow).Select
+        }
+        else {
+            xl.Range("Q" . targetRow).Select
+        }
+    }
+    catch e
+    {
+        RecordLog("^" idx " - 실패: " e.message)
+        ExcelOptimizer(false)
+        return
+    }
+}
+
+
+RegisterSlotFromExcel(idx)
+{
+    global
+
+    if(!CheckExcel(true, "ALT")) {
+        return
+    }
+    if(!CarExist()){
+        return
+    }
+
+    try
+    {
+        Send, ^{Enter}{Ctrl up}
+        WaitExcel()
+
+        ; 1. 엑셀 C열부터 Q열까지 한 번에 복사
+        selectionRow := xl.Selection.Row
+        Clipboard := ""
+        xl.Range("C" . selectionRow . ":Q" . selectionRow).Copy
+        ClipWait, 1
+
+        newDataLine := ReformCarInfo(Clipboard, false)
+
+        IniDelete, %iniPath%, slot%chooseSlotNum%, %idx%
+        IniWrite, %newDataLine%, %iniPath%, slot%chooseSlotNum%, %idx%
+
+        LoadQuickSlot(chooseSlotNum)
+        xl.Application.CutCopyMode := False
+
+        GuiControl, 1:, Status, % chooseSlotNum "번 슬롯 " idx "번 교체 완료"
+        SetTimer, ResetStatus, 3000
+    }
+    catch
+    {
+        RecordLog("!" idx " - 실패")
+    }
+}
+
+
