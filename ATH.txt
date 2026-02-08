@@ -1245,24 +1245,16 @@ $Enter::
     }
 
     WinGetClass, vClass, A
-    if (vClass != "bosa_sdm_XL9") {
-        Send, {Enter}
-        return
-    }
-
-    try {
-        xl := ComObjActive("Excel.Application")
-
-        vIdx := xl.ActiveSheet.Index
-
-        if (vIdx = 2) {
-            Send, +{Enter}
-            return
+    if (vClass = "bosa_sdm_XL9") {
+        try {
+            ; 객체 호출을 변수에 담지 않고 직접 비교하여 속도 향상
+            if (ComObjActive("Excel.Application").ActiveSheet.Index = 2) {
+                Send, +{Enter}
+                return
+            }
+        } catch {
         }
-    } catch {
-        ; COM 연결 실패 시 즉시 일반 엔터로 넘겨 업무 중단 방지
     }
-
     Send, {Enter}
 return
 
