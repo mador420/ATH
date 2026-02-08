@@ -1238,39 +1238,32 @@ $!6::RegisterSlotFromExcel(6)
 $!7::RegisterSlotFromExcel(7)
 
 
-; #If를 사용하지 않고 내부에서 판단하되,
-; 엑셀 찾기 창이 아닐 경우 0.001초 내에 일반 Enter를 반환합니다.
-
 $Enter::
+    if (searchto != 1) {
+        Send, {Enter}
+        return
+    }
+
     WinGetClass, vClass, A
+    if (vClass != "bosa_sdm_XL9") {
+        Send, {Enter}
+        return
+    }
 
-    ; 엑셀 찾기 창이고 searchto 값이 1일 때 동작
-    if (searchto = 1 && vClass = "bosa_sdm_XL9")
-    {
-        try {
-            xl := ComObjActive("Excel.Application")
-            vIdx := xl.ActiveSheet.Index
+    try {
+        xl := ComObjActive("Excel.Application")
 
-            ; 로그 기록: 어떤 시트가 감지되었는지 출력
-            RecordLog("[DEBUG] 현재 시트 번호: " . vIdx)
+        vIdx := xl.ActiveSheet.Index
 
-            if (vIdx = 2) {
-                ; 로그 기록: 실제 동작 수행 확인
-                RecordLog("[ACTION] 2번 시트 일치 -> Shift+Enter 실행")
-                Send, +{Enter}
-                return
-            }
-        } catch e {
-            RecordLog("[ERROR] 오류 발생: " . e.message)
+        if (vIdx = 2) {
+            Send, +{Enter}
+            return
         }
+    } catch {
+        ; COM 연결 실패 시 즉시 일반 엔터로 넘겨 업무 중단 방지
     }
 
     Send, {Enter}
-return
-
-; ToolTip 제거용 라벨 (스크립트 하단에 두세요)
-RemoveToolTip:
-    ToolTip
 return
 
 ;=================================================================
