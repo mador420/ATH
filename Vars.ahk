@@ -2,11 +2,10 @@
 ; Vars.ahk - 전역 변수 및 초기 설정 관리
 ; ==========================================================
 
-; 1. 기본 설정 및 자동화 관련
-global mouseMoveSpeed, tmsIdleTime, searchStartRow, chooseSlotNum
+global iniPath := A_ScriptDir "\athsettings.ini"
 
-global searchto, autoslip, inputscroll
-global midOffset := 1
+; 1. 기본 설정 및 자동화 관련
+global  searchStartRow, chooseSlotNum, searchto, autoslip, onlyexcel
 
 ; 2. 엑셀 TMS 객체 관리
 global xl, excelName, tms1Pid, tms2Pid

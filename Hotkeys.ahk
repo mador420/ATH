@@ -1,4 +1,8 @@
-﻿$F11::
+﻿;=============================================================
+;핫키
+;=============================================================
+
+$F11::
 {
 	RecordLog("F11 Pressed")
 	RegistPrograms()
@@ -7,19 +11,29 @@
 
 $F1::
 {
-	;if(!CheckTMS())	return
+	if(!CheckTMS())	{
+        return
+    }
 	if(!CheckExcel()) {
 		return
 	}
 
-    ActivateWindow("ahk_pid " . tms1Pid)
+    if(onlyexcel = 1){
+        ActivateWindow("ahk_pid " . tms1Pid)
+    }
 	ActivateWindow(excelName)
 
 	Sleep, 20
 
+    Send, {Ctrl Down}{Enter}{Ctrl Up}
+
 	try
     {
 		GuiControl, 1:, Status,엑셀, TMS 새로고침중
+
+		if(onlyexcel = 1){
+            SafeClick("Button22", tms1Pid)
+        }
 
         ExcelOptimizer(true)
 
@@ -28,7 +42,6 @@ $F1::
             WaitExcel()
         }
 
-		;ControlClick, Button22, ahk_pid %tms1Pid%
 		xl.Range("P6").AutoFilter(16, "=")
         WaitExcel()
 		GetTMSCountFromExcel()
@@ -49,12 +62,14 @@ $F1::
 
 $F3::
 {
-	if(!CheckExcel()) {
+    if(!CheckExcel()) {
 		return
 	}
 	GuiControl, 1:, Status, 차량번호 조회로 이동
 	ActivateWindow(excelName)
     ExcelOptimizer(true)
+
+    Send, {Ctrl Down}{Enter}{Ctrl up}
 
 	try {
 		MoveSheet(2)
@@ -80,7 +95,6 @@ $F3::
 		Send, ^f
 		Send, {Ctrl up}{End}
         Send, +{Home}
-		RecordLog("F3 - 검색창 대기")
 	} catch {
         ExcelOptimizer(false)
 		RecordLog("F3 동작중 실패")
@@ -141,14 +155,7 @@ $F4::
 		targetRow := FindLastRow()
         ExcelOptimizer(false)
 
-        if (midOffset > 1 && inputscroll = 1) {
-            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
-        }
-
-		xl.Range("C" . targetRow).Select
-		WaitExcel()
-        Send, ^v{Ctrl Up}
-		WaitExcel()
+		InputCarInfo(targetRow)
 
         if (lastVal = "카드/전산" || lastVal = "48/전산" || lastVal = "50/전산")	{
             xl.Range("K" . targetRow).Select
@@ -256,7 +263,7 @@ $F7::
         dataArr[6] := "1뷰티"    ; H열에 새 값 주입
         dataArr[7] := placeTemp  ; I열에 기존 장소1 주입
 
-        newRowData := ReformCarInfo(dataArr, true)
+        newRowData := ReformCarInfo(dataArr, true, true)
 
         ; 4. 기존 행 P열 수정 (이건 개별 수정 필수)
         ExcelOptimizer(true)
@@ -272,17 +279,10 @@ $F7::
 
         ExcelOptimizer(false)
 
-        if (midOffset > 1 && inputscroll = 1) {
-            xl.ActiveWindow.ScrollRow := Max(1, targetRow - midOffset)
-        }
+		InputCarInfo(targetRow)
 
-		xl.Range("C" . targetRow).Select
-		WaitExcel()
-        Send, ^v{Ctrl Up}
-		WaitExcel()
 		xl.Range("K" . targetRow).Select
 
-        RecordLog("F7 재입력 완료")
 		GuiControl, 1:, Status, 납품 -> 반출 재입력 완료
 
     }
@@ -312,23 +312,18 @@ $NumLock::
 
 $Insert::
 {
-    if(!CheckTMS()) return
+    if(!CheckTMS(true, "Insert")) {
+        return
+    }
     if(!CheckExcel(true)) {
 		return
 	}
 
-    ActivateWindow(excelName)
-    if (!WaitExcel()) {
-        RecordLog("Insert - 엑셀 응답 없음")
-        return
-    }
-
-    ; Ctrl+Enter 등 키보드 입력 전 상태 초기화 (끼임 방지)
-    Send, {Ctrl up}{Alt up}{Shift up}
-
+    ; 편집모드 해제
+    Send, {Ctrl Down}{Enter}{Ctrl up}
     ; 현재 선택된 셀의 값 가져오기
     try {
-        inputCarNum := xl.Selection.Value
+        inputCarNum := xl.Cells(xl.ActiveCell.Row, 3).Value
 
         if(inputCarNum = "" || inputCarNum = "차량번호") {
             RecordLog("Insert - 빈칸 시도")
@@ -347,25 +342,19 @@ $Insert::
 
     ActivateWindow("ahk_pid " . tms2Pid)
 
+
     ; 텍스트 입력 (ControlSetText는 신뢰도가 높지만 입력 후 대기가 필요할 수 있음)
     ControlSetText, PBEDIT1052, %inputCarNum%, ahk_pid %tms2Pid%
-    Sleep, %tmsIdleTime%
-
+    sleep 100
     ; 버튼 클릭
-    ControlClick, Button9, ahk_pid %tms2Pid%
+    SafeClick("Button9", tms2Pid)
+    sleep 50
 
-    ActivateWindow("ahk_pid " . tms2Pid)
-
-    Sleep, %normalIdleTime%
-
-    MouseMove, 1218, 407, %mouseMoveSpeed%
-    Click
-    MouseMove, 1395, 407, %mouseMoveSpeed%
+    MouseMove, 1395, 407, 0
 
     GuiControl, 1:, Status, 차량 정보 입력 완료
     SetTimer, ResetStatus, 3000
 
-    Send, {Ctrl up}
     return
 }
 
@@ -426,17 +415,24 @@ $^b::
 
 $ScrollLock::
 {
+    if(!CheckTMS(true, "ScrollLock", true)) {
+        return
+    }
     ActivateWindow("ahk_pid " . tms2Pid)
-    MouseMove, 1395, 407, %mouseMoveSpeed%
-    Click
+    SafeClick("Button12", tms2Pid)
+	sleep 200
+    ActivateWindow("ahk_pid " . tms1Pid)
+    SafeClick("Button22", tms1Pid)
     return
 }
 
 $Pause::
 {
+    if(!CheckTMS(true, "Pause", true)) {
+        return
+    }
     ActivateWindow("ahk_pid " . tms2Pid)
-	MouseMove, 1457, 407 ,%mouseMoveSpeed%
-	Click
+    SafeClick("Button15", tms2Pid)
 	return
 }
 
@@ -459,6 +455,7 @@ $!7::RegisterSlotFromExcel(7)
 
 #If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 1)
 
+$NumpadEnter::
 $Enter::
     Send, {Shift Down}{Enter}{Shift Up}
     return
