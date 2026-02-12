@@ -76,14 +76,14 @@ Gui, 3: Add, Radio, x25 y30 w150 h25 vautoslip1, 지역별 자동입력
 Gui, 3: Add, Radio, x25 y50 w150 h25 vautoslip2, BTOS / TRDT
 
 Gui, 3: Font, S13, 맑은 고딕
-Gui, 3: Add, Text, x25 y85 w200 h25, 차량 검색 방향
+Gui, 3: Add, Text, x25 y85 w200 h25, 차량 검색 시작점
 Gui, 3: Font, S12, 맑은 고딕
-Gui, 3: Add, Radio, x25 y110 w80 h25 vsearchto1, ↑위로
-Gui, 3: Add, Radio, x25 y130 w80 h25 vsearchto2, ↓아래로
-
-Gui, 3: Font, S13, 맑은 고딕
-Gui, 3: Add, Text, x25 y165 w300 h25, 검색 시작 행(아래로 조회시)
-Gui, 3: Add, Edit, x25 y195 w100 h25 vsearchStartRow
+Gui, 3: Add, Radio, x25 y110 w200 h25 vsearchto1, 위에서
+Gui, 3: Add, Radio, x25 y165 w200 h25 vsearchto2, 아래에서
+Gui, 3: Add, Edit, x25 y135 w100 h25 vfromTopRow
+Gui, 3: Add, Text, x130 y135 w200 h25, 번째 행
+Gui, 3: Add, Edit, x25 y190 w100 h25 vfromBottomRow
+Gui, 3: Add, Text, x130 y190 w200 h25, 번째 행
 
 Gui, 3: Font, S13, 맑은 고딕
 Gui, 3: Add, Text, x225 y5 w300 h25, 엑셀만 사용(TMS고장시)

@@ -5,7 +5,7 @@
 global iniPath := A_ScriptDir "\athsettings.ini"
 
 ; 1. 기본 설정 및 자동화 관련
-global  searchStartRow, chooseSlotNum, searchto, autoslip, onlyexcel
+global  fromTopRow, fromBottomRow, chooseSlotNum, searchto, autoslip, onlyexcel
 
 ; 2. 엑셀 TMS 객체 관리
 global xl, excelName, tms1Pid, tms2Pid

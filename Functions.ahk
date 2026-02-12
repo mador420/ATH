@@ -8,7 +8,8 @@ LoadSettings() {
     global ;
 
     ; 일반 설정 로드
-    ReadToVar("settings", "searchStartRow", 7)
+    ReadToVar("settings", "fromTopRow", 7)
+    ReadToVar("settings", "fromBottomRow", 0)
     ReadToVar("settings", "chooseSlotNum", 1)
 
     ReadToVar("settings", "autoslip", 1, "radio")
@@ -26,15 +27,16 @@ SaveSettings() {
     global
 	Gui, 3: Submit, NoHide
 
-    issearchOk := (searchStartRow >= 7 && searchStartRow <= 500000)
+    issearchOk := (fromTopRow >= 7 && fromTopRow <= 500000) && (fromBottomRow >= 7 && fromBottomRow <= 500000)
 
 
     if (issearchOk)
     {
         GuiControl, 1:, Status, 기타 설정 저장 중
 
-        IniWrite, %searchStartRow%, %iniPath%, settings, searchStartRow
-        IniWrite, %searchStartRow%, %iniPath%, settings, onlyexcel
+        IniWrite, %fromTopRow%, %iniPath%, settings, fromTopRow
+        IniWrite, %fromBottomRow%, %iniPath%, settings, fromBottomRow
+        IniWrite, %onlyexcel%, %iniPath%, settings, onlyexcel
 
         Gui, 3: Hide
         MsgBox, 262144, 알림, 저장되었습니다.
@@ -342,19 +344,19 @@ CheckExcel(checkActive := false, callerName := "") {  ; 기본값은 false (체�
 }
 
 WaitExcel() {
-    global
+    global xl
     maxRetries := 100
-    sleepTime := 10
 
     Loop, %maxRetries%
     {
         try {
-            if(xl.Ready && IsObject(xl))
+            if (xl.Ready)
                 return true
         } catch {
-            return false
+            Sleep, 10
+            continue
         }
-        Sleep, %sleepTime%
+        Sleep, 10
     }
     return false
 }
@@ -682,19 +684,18 @@ HandleCarInput(idx)
             return
         }
 
-        ExcelOptimizer(true)
-
         finalLine := ReformCarInfo(row, true)
 
+        ExcelOptimizer(true)
         MoveSheet(1)
 
         ; 빈 행 찾기
         targetRow := FindLastRow()
+        ExcelOptimizer(false)
+        WaitExcel()
 
         Clipboard := finalLine
         ClipWait, 1
-
-		ExcelOptimizer(false)
 
         InputCarInfo(targetRow)
 

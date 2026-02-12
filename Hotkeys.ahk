@@ -18,29 +18,21 @@ $F1::
 		return
 	}
 
-    if(onlyexcel = 1){
-        ActivateWindow("ahk_pid " . tms1Pid)
-    }
-	ActivateWindow(excelName)
-
-	Sleep, 20
-
-    Send, {Ctrl Down}{Enter}{Ctrl Up}
-
 	try
     {
 		GuiControl, 1:, Status,엑셀, TMS 새로고침중
 
-		if(onlyexcel = 1){
+		if(onlyexcel = 1) {
+            ActivateWindow("ahk_pid " . tms1Pid)
             SafeClick("Button22", tms1Pid)
         }
 
+        ActivateWindow(excelName)
+        SendInput, {Ctrl Down}{Enter}{Ctrl Up}
+
         ExcelOptimizer(true)
 
-        if (xl.ActiveSheet.Index != 1) {
-            xl.Sheets(1).Activate
-            WaitExcel()
-        }
+        MoveSheet(1)
 
 		xl.Range("P6").AutoFilter(16, "=")
         WaitExcel()
@@ -67,34 +59,30 @@ $F3::
 	}
 	GuiControl, 1:, Status, 차량번호 조회로 이동
 	ActivateWindow(excelName)
-    ExcelOptimizer(true)
 
-    Send, {Ctrl Down}{Enter}{Ctrl up}
 
 	try {
+        SendInput, {Ctrl Down}{Enter}{Ctrl up}
 		MoveSheet(2)
-
-		xl.Columns("C").Select
-		WaitExcel()
+        ExcelOptimizer(true)
 
 		if (searchto = 1) {
-            lastRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row
-			targetRow := xl.Cells(lastRow, 3).End(-4162).Row
-		} else if (searchto = 2) {
-			targetRow := RegExReplace(searchStartRow, "\D")
-		}
+            targetRow := RegExReplace(fromTopRow, "\D")
+        } else if (searchto = 2) {
+            baseRow := xl.Cells(xl.Rows.Count, 3).End(-4162).Row - RegExReplace(fromBottomRow, "\D")
+            targetRow := xl.Cells(baseRow, 3).End(-4162).Row
+        }
 		if (targetRow < 6) {
 			targetRow := 7
 		}
 
+        xl.Columns("C").Select
+        WaitExcel()
         ExcelOptimizer(false)
+        xl.Cells(targetRow, 3).Activate
+        WaitExcel()
 
-		xl.Cells(targetRow, 3).Activate
-		WaitExcel()
-
-		Send, ^f
-		Send, {Ctrl up}{End}
-        Send, +{Home}
+		SendInput, ^f{End}+{Home}
 	} catch {
         ExcelOptimizer(false)
 		RecordLog("F3 동작중 실패")
@@ -154,6 +142,7 @@ $F4::
 
 		targetRow := FindLastRow()
         ExcelOptimizer(false)
+        WaitExcel()
 
 		InputCarInfo(targetRow)
 
@@ -191,32 +180,36 @@ $F6::
         ExcelOptimizer(true)
         ; 1. 현재 선택된 행 객체 생성
         selectionRow := xl.Selection.Row
-        rowObj := xl.ActiveSheet.Rows(selectionRow)
 
-        ; 2. 각 열의 값을 변수에 저장 (객체 호출 최소화)
-        statusVal := rowObj.Cells(7).Value ; G열
-        hVal      := rowObj.Cells(8).Value ; H열
-        iVal      := rowObj.Cells(9).Value ; I열
+        ; 한 번에 읽기 (3번 호출 → 1번 호출)
+        rangeAddr := "G" . selectionRow . ":I" . selectionRow
+        values := xl.Range(rangeAddr).Value
 
-        ; 3. 정확한 문자열 비교 (반드시 "반출" 또는 "납품"일 때만)
+        statusVal := values[1][1]  ; G열
+        hVal      := values[1][2]  ; H열
+        iVal      := values[1][3]  ; I열
+
+        ; 새 값 준비
         if (statusVal = "반출")
         {
-            rowObj.Cells(7).Value := "납품"    ; G열 변경
-            rowObj.Cells(8).Value := iVal      ; H열 <- 기존 I열 값
-            rowObj.Cells(9).Value := "1뷰티"   ; I열 <- 고정값
-
+            newValues := [["납품", iVal, "1뷰티"]]
             GuiControl, 1:, Status, 반출 -> 납품 전환 완료
-            ExcelOptimizer(false)
         }
         else if (statusVal = "납품")
         {
-            rowObj.Cells(7).Value := "반출"    ; G열 변경
-            rowObj.Cells(8).Value := "1뷰티"   ; H열 <- 고정값
-            rowObj.Cells(9).Value := hVal      ; I열 <- 기존 H열 값
-
+            newValues := [["반출", "1뷰티", hVal]]
             GuiControl, 1:, Status, 납품 -> 반출 전환 완료
-            ExcelOptimizer(false)
         }
+        else
+        {
+            GuiControl, 1:, Status, 반출/납품 업무가 아님
+            SetTimer, ResetStatus, -3000
+            return
+        }
+
+        ; 한 번에 쓰기
+        xl.Range(rangeAddr).Value := newValues
+        ExcelOptimizer(false)
     }
     catch
     {
@@ -320,9 +313,10 @@ $Insert::
 	}
 
     ; 편집모드 해제
-    Send, {Ctrl Down}{Enter}{Ctrl up}
+    SendInput, {Ctrl Down}{Enter}{Ctrl up}
     ; 현재 선택된 셀의 값 가져오기
     try {
+
         inputCarNum := xl.Cells(xl.ActiveCell.Row, 3).Value
 
         if(inputCarNum = "" || inputCarNum = "차량번호") {
@@ -452,7 +446,7 @@ $!5::RegisterSlotFromExcel(5)
 $!6::RegisterSlotFromExcel(6)
 $!7::RegisterSlotFromExcel(7)
 
-
+/*
 #If (WinActive("찾기 및 바꾸기") || WinActive("ahk_class #32770")) && (searchto = 1)
 
 $NumpadEnter::
@@ -461,3 +455,4 @@ $Enter::
     return
 
 #If
+*/
